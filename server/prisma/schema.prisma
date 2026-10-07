@@ -1,7 +1,536 @@
+// ============================================================
+// PRISMA CLIENT
+// ============================================================
+
 generator client {
   provider = "prisma-client-js"
 }
 
+
+// ============================================================
+// DATABASE
+// Prisma 7 me DATABASE_URL prisma.config.ts se read hota hai.
+// ============================================================
+
 datasource db {
   provider = "postgresql"
+}
+
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum UserRole {
+  ADMIN
+  TEACHER
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  INACTIVE
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+}
+
+
+// ============================================================
+// USER
+// Authentication aur authorization ke liye
+// ============================================================
+
+model User {
+  id             String     @id @default(uuid())
+
+  googleId       String?    @unique
+  email          String     @unique
+  name           String
+
+  emailVerified  Boolean    @default(false)
+
+  passwordHash   String?
+
+  role           UserRole
+  status         UserStatus @default(PENDING)
+
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  teacherProfile TeacherProfile?
+}
+
+
+// ============================================================
+// TEACHER PROFILE
+// Teacher ki additional information
+// ============================================================
+
+model TeacherProfile {
+  id String @id @default(uuid())
+
+  // User table se 1-to-1 connection
+  userId String @unique
+
+  user User @relation(fields: [userId],references: [id])
+
+  // Faculty ID: FAC_CS101
+  teacherCode String @unique
+
+  name  String
+  phone String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Teacher ke assigned subjects
+  assignments TeacherSubjectAssignment[]
+
+  // Teacher ke attendance sessions
+  attendanceSessions AttendanceSession[]
+
+  // Teacher ke marks assessments
+  marksAssessments MarksAssessment[]
+}
+
+
+// ============================================================
+// BRANCH
+// Example:
+// CSE
+// Mechanical
+// Automobile
+// 3D
+// ============================================================
+
+model Branch {
+  id String @id @default(uuid())
+
+  name String @unique
+
+  // One Branch → Many Students
+  students Student[]
+
+  // Branch-specific attendance sessions
+  attendanceSessions AttendanceSession[]
+
+  // Branch-specific marks assessments
+  marksAssessments MarksAssessment[]
+}
+
+
+// ============================================================
+// SEMESTER
+// Example:
+// 1, 2, 3, 4, 5, 6
+// ============================================================
+
+model Semester {
+  id String @id @default(uuid())
+
+  number Int @unique
+
+  // One Semester → Many Students
+  students Student[]
+
+  // Attendance sessions
+  attendanceSessions AttendanceSession[]
+
+  // Marks assessments
+  marksAssessments MarksAssessment[]
+}
+
+
+// ============================================================
+// SUBJECT
+// Example:
+// CS301 - DBMS
+// CS302 - Operating System
+// ============================================================
+
+model Subject {
+  id String @id @default(uuid())
+
+  name String
+  code String @unique
+
+  // Teacher ↔ Subject
+  assignments TeacherSubjectAssignment[]
+
+  // Attendance
+  attendanceSessions AttendanceSession[]
+
+  // Marks
+  marksAssessments MarksAssessment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
+// ============================================================
+// STUDENT
+// ============================================================
+
+model Student {
+  id String @id @default(uuid())
+
+  // Human-readable college roll number
+  rollNo String @unique
+
+  name String
+
+  // -------------------------
+  // Branch relationship
+  // -------------------------
+
+  branchId String
+
+  branch Branch @relation(fields: [branchId],references: [id])
+
+  // -------------------------
+  // Semester relationship
+  // -------------------------
+
+  semesterId String
+
+  semester Semester @relation(fields: [semesterId],references: [id])
+
+  // -------------------------
+  // Attendance
+  // -------------------------
+
+  attendanceRecords AttendanceRecord[]
+
+  // -------------------------
+  // Marks
+  // -------------------------
+
+  marksRecords MarksRecord[]
+
+  // -------------------------
+  // Status
+  // -------------------------
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // -------------------------
+  // Indexes
+  // -------------------------
+
+  @@index([branchId])
+  @@index([semesterId])
+  @@index([branchId, semesterId])
+}
+
+
+// ============================================================
+// TEACHER SUBJECT ASSIGNMENT
+//
+// Teacher ↔ Subject
+//
+// Many Teachers can teach a Subject
+// One Teacher can teach multiple Subjects
+// ============================================================
+
+model TeacherSubjectAssignment {
+  id String @id @default(uuid())
+
+  teacherId String
+  subjectId String
+
+  teacher TeacherProfile @relation(fields: [teacherId],references: [id])
+
+  subject Subject @relation(fields: [subjectId],references: [id])
+
+  // Example: 2026-27
+  academicYear String
+
+  active Boolean @default(true)
+
+  assignedAt DateTime @default(now())
+
+  // Same teacher ko same subject
+  // same academic year me duplicate assignment nahi milega.
+  @@unique([teacherId, subjectId, academicYear])
+
+  @@index([teacherId])
+  @@index([subjectId])
+}
+
+
+// ============================================================
+// ATTENDANCE SESSION
+//
+// Ek particular date + subject + teacher + class ki
+// attendance session
+// ============================================================
+
+model AttendanceSession {
+  id String @id @default(uuid())
+
+  // -------------------------
+  // Subject
+  // -------------------------
+
+  subjectId String
+
+  subject Subject @relation(fields: [subjectId],references: [id])
+
+  // -------------------------
+  // Teacher
+  // -------------------------
+
+  teacherId String
+
+  teacher TeacherProfile @relation(fields: [teacherId],references: [id])
+
+  // -------------------------
+  // Semester
+  // -------------------------
+
+  semesterId String
+
+  semester Semester @relation(fields: [semesterId],references: [id])
+
+  // -------------------------
+  // Branch
+  //
+  // Nullable because Semester 1/2
+  // can be combined.
+  // -------------------------
+
+  branchId String?
+
+  branch Branch? @relation(fields: [branchId],references: [id])
+
+  // -------------------------
+  // Attendance information
+  // -------------------------
+
+  attendanceDate DateTime
+
+  // Optional period/session number
+  sessionNo Int?
+
+  // Attendance records
+  records AttendanceRecord[]
+
+  createdAt DateTime @default(now())
+
+  // -------------------------
+  // Indexes
+  // -------------------------
+
+  @@index([attendanceDate])
+  @@index([subjectId, attendanceDate])
+  @@index([teacherId, attendanceDate])
+}
+
+
+// ============================================================
+// ATTENDANCE RECORD
+//
+// Individual student's attendance
+// ============================================================
+
+model AttendanceRecord {
+  id String @id @default(uuid())
+
+  // -------------------------
+  // Attendance Session
+  // -------------------------
+
+  sessionId String
+
+  session AttendanceSession @relation(fields: [sessionId],references: [id])
+
+  // -------------------------
+  // Student
+  // -------------------------
+
+  studentId String
+
+  student Student @relation(fields: [studentId],references: [id])
+
+  // -------------------------
+  // Status
+  // -------------------------
+
+  status AttendanceStatus
+
+  markedAt DateTime @default(now())
+
+  // Same student cannot have
+  // duplicate record in same session.
+  @@unique([sessionId, studentId])
+
+  @@index([studentId])
+}
+
+
+// ============================================================
+// MARKS ASSESSMENT
+//
+// Example:
+// DBMS Internal Test 1
+// Maximum Marks = 30
+// ============================================================
+
+model MarksAssessment {
+  id String @id @default(uuid())
+
+  // -------------------------
+  // Subject
+  // -------------------------
+
+  subjectId String
+
+  subject Subject @relation(fields: [subjectId],references: [id])
+
+  // -------------------------
+  // Teacher
+  // -------------------------
+
+  teacherId String
+
+  teacher TeacherProfile @relation(fields: [teacherId], references: [id])
+
+  // -------------------------
+  // Semester
+  // -------------------------
+
+  semesterId String
+
+  semester Semester @relation(fields: [semesterId],references: [id])
+
+  // -------------------------
+  // Branch
+  // Nullable for combined batches
+  // -------------------------
+
+  branchId String?
+
+  branch Branch? @relation(fields: [branchId],references: [id])
+
+  // -------------------------
+  // Assessment information
+  // -------------------------
+
+  title String
+
+  maxMarks Float
+
+  assessmentDate DateTime
+
+  // Individual student marks
+  records MarksRecord[]
+
+  createdAt DateTime @default(now())
+
+  // -------------------------
+  // Index
+  // -------------------------
+
+  @@index([subjectId, assessmentDate])
+}
+
+
+// ============================================================
+// MARKS RECORD
+//
+// Individual student's marks
+// ============================================================
+
+model MarksRecord {
+  id String @id @default(uuid())
+
+  // -------------------------
+  // Assessment
+  // -------------------------
+
+  assessmentId String
+
+  assessment MarksAssessment @relation(fields: [assessmentId],references: [id])
+
+  // -------------------------
+  // Student
+  // -------------------------
+
+  studentId String
+
+  student Student @relation(fields: [studentId],references: [id])
+
+  // -------------------------
+  // Marks
+  // -------------------------
+
+  marks Float
+
+  remarks String?
+
+  updatedAt DateTime @updatedAt
+
+  // Same student cannot have
+  // duplicate marks record
+  // in same assessment.
+  @@unique([assessmentId, studentId])
+
+  @@index([studentId])
+}
+
+
+// ============================================================
+// AUDIT LOG
+//
+// Admin actions / important system actions
+// ============================================================
+
+model AuditLog {
+  id String @id @default(uuid())
+
+  userId String?
+
+  action String
+
+  entity String?
+
+  entityId String?
+
+  details String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+
+// ============================================================
+// STUDENT IMPORT BATCH
+//
+// Excel/CSV bulk student upload tracking
+// ============================================================
+
+model StudentImportBatch {
+  id String @id @default(uuid())
+
+  fileName String
+
+  totalRecords Int @default(0)
+
+  successfulRecords Int @default(0)
+
+  failedRecords Int @default(0)
+
+  status String
+
+  createdAt DateTime @default(now())
 }
