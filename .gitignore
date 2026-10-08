@@ -37,6 +37,10 @@ out/
 .vite/
 *.local
 
+# Google OAuth credentials
+client_secret*.json
+**/client_secret*.json
+
 
 # ==========================================
 # Logs
