@@ -7,8 +7,7 @@
     "dev": "nodemon",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "vitest",
-    "postinstall": "prisma skills sync || exit 0"
+    "test": "vitest"
   },
   "keywords": [],
   "author": "",
