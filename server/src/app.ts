@@ -4,6 +4,7 @@ import helmet from "helmet";
 import compression from "compression";
 import cookieParser from "cookie-parser";
 import authRoutes from "./modules/auth/auth.routes.js";
+import authTestRoutes from "./middlewares/auth-test.routes.js";
 
 const app = express();
 
@@ -23,6 +24,7 @@ app.use(compression());
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use("/api/auth-test", authTestRoutes);
 
 // Health check
 app.get("/api/health", (_req, res) => {
