@@ -60,6 +60,14 @@ export const adminLogin = async (
       role: "ADMIN",
     });
 
+    res.cookie("erp_access_token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 15 * 60 * 1000,
+      path: "/",
+    });
+
     return res.status(200).json({
       success: true,
       message: "Admin login successful",

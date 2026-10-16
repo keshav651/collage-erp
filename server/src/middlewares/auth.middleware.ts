@@ -15,45 +15,26 @@ export const authenticateToken = (
   next: NextFunction
 ) => {
   const authReq = req as AuthenticatedRequest;
-  const authHeader = req.headers.authorization;
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  // Read JWT from the browser cookie
+  const token = req.cookies?.erp_access_token;
+
+  if (!token || typeof token !== "string") {
     return res.status(401).json({
       success: false,
-      message: "Authentication token is required",
-    });
-  }
-
-  const token = authHeader.split(" ")[1];
-
-  if (!token) {
-    return res.status(401).json({
-      success: false,
-      message: "Invalid authorization header",
+      message: "Authentication cookie is required",
     });
   }
 
   try {
     const payload = verifyAuthToken(token);
 
-    if (
-      typeof payload === "string" ||
-      !payload ||
-      typeof payload.userId !== "string" ||
-      !["ADMIN", "TEACHER"].includes(payload.role as string)
-    ) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid authentication token",
-      });
-    }
-
     authReq.user = {
       userId: payload.userId,
-      role: payload.role as "ADMIN" | "TEACHER",
+      role: payload.role,
     };
 
-    next();
+    return next();
   } catch {
     return res.status(401).json({
       success: false,
