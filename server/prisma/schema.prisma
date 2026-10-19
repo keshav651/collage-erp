@@ -71,30 +71,25 @@ model User {
 // ============================================================
 
 model TeacherProfile {
-  id String @id @default(uuid())
+  id         String   @id @default(uuid())
+  userId     String   @unique
+  teacherCode String  @unique
+  name       String
+  phone      String?
+  branchId   String
 
-  // User table se 1-to-1 connection
-  userId String @unique
+  user       User     @relation(fields: [userId], references: [id])
+  branch     Branch   @relation(fields: [branchId], references: [id])
 
-  user User @relation(fields: [userId],references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  // Faculty ID: FAC_CS101
-  teacherCode String @unique
-
-  name  String
-  phone String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Teacher ke assigned subjects
-  assignments TeacherSubjectAssignment[]
-
-  // Teacher ke attendance sessions
+  assignments       TeacherSubjectAssignment[]
   attendanceSessions AttendanceSession[]
+  marksAssessments  MarksAssessment[]
 
-  // Teacher ke marks assessments
-  marksAssessments MarksAssessment[]
+  // Apne existing model ke doosre fields aur relations
+  // bhi preserve karna.
 }
 
 
@@ -108,18 +103,18 @@ model TeacherProfile {
 // ============================================================
 
 model Branch {
-  id String @id @default(uuid())
+  id                String   @id @default(uuid())
+  name              String   @unique
+  codePrefix        String   @unique
+  nextTeacherNumber Int      @default(0)
 
-  name String @unique
-
-  // One Branch → Many Students
-  students Student[]
-
-  // Branch-specific attendance sessions
+  students          Student[]
   attendanceSessions AttendanceSession[]
+  marksAssessments  MarksAssessment[]
+  teachers          TeacherProfile[]
 
-  // Branch-specific marks assessments
-  marksAssessments MarksAssessment[]
+  // Apne existing Branch model ke baaki fields
+  // aur relations ko bhi preserve karna.
 }
 
 

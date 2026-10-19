@@ -1,5 +1,5 @@
 import "dotenv/config";
-import redis from "./redis_service.js";
+import redis from "../services/redis_service.js";
 
 const testRedis = async () => {
   try {
@@ -17,10 +17,11 @@ const testRedis = async () => {
 
     console.log("Redis test successful");
 
-    await redis.quit();
   } catch (error) {
     console.error("Redis test failed:", error);
     process.exit(1);
+  }finally {
+    await redis.quit();
   }
 };
 
