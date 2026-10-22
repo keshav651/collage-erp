@@ -1,11 +1,8 @@
-import GoogleSignup from './components/Google-Login-button'
-function App() {
+import { RouterProvider } from "react-router-dom";
+import { router } from "./app/router";
 
-  return (
-    <>
-      <GoogleSignup/>
-    </>
-  )
+function App() {
+  return <RouterProvider router={router} />;
 }
 
-export default App
+export default App;
