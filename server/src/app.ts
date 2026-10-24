@@ -22,6 +22,7 @@ app.use(helmet());
 const allowedOrigins: string[] = [
   "http://localhost:5173",
   process.env.FRONTEND_URL,
+  "https://collage-erp-two.vercel.app"
 ].filter((origin): origin is string => Boolean(origin));
 app.use(
   cors({
