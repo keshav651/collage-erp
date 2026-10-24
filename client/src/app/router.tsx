@@ -1,62 +1,35 @@
+import { createBrowserRouter } from "react-router-dom";
+import LoginPage from "../pages/auth/LoginPage";
+import SignupPage from "../pages/auth/SignUpPage";
+import PendingApprovalPage from "../pages/auth/PendingApprovalPage";
 
-import { Navigate, createBrowserRouter } from "react-router-dom";
+function AdminDashboardPlaceholder() {
+    return <h1>Admin Dashboard</h1>;
+}
 
-import LoginPage from "../features/auth/pages/LoginPage";
-import AdminDashboard from "../features/admin/pages/AdminDashboard";
-import TeacherDashboard from "../features/teachers/pages/TeacherDashboard";
-
-import AdminLayout from "../layouts/AdminLayout";
-import TeacherLayout from "../layouts/TeacherLayout";
-
-import ProtectedRoute from "../routes/Protected.routes";
-import RoleRoute from "../routes/Role.route";
+function TeacherDashboardPlaceholder() {
+    return <h1>Teacher Dashboard</h1>;
+}
 
 export const router = createBrowserRouter([
-  {
-    path: "/",
-    element: <Navigate to="/login" replace />,
-  },
-  {
-    path: "/login",
-    element: <LoginPage />,
-  },
-  {
-    element: <ProtectedRoute />,
-    children: [
-      {
-        element: <RoleRoute allowedRoles={["ADMIN"]} />,
-        children: [
-          {
-            path: "/admin",
-            element: <AdminLayout />,
-            children: [
-              {
-                index: true,
-                element: <AdminDashboard />,
-              },
-            ],
-          },
-        ],
-      },
-      {
-        element: <RoleRoute allowedRoles={["TEACHER"]} />,
-        children: [
-          {
-            path: "/teacher",
-            element: <TeacherLayout />,
-            children: [
-              {
-                index: true,
-                element: <TeacherDashboard />,
-              },
-            ],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    path: "*",
-    element: <Navigate to="/login" replace />,
-  },
+    {
+        path: "/",
+        element: <LoginPage />,
+    },
+    {
+        path: "/admin/dashboard",
+        element: <AdminDashboardPlaceholder />,
+    },
+    {
+        path: "/teacher/dashboard",
+        element: <TeacherDashboardPlaceholder />,
+    },
+    {
+        path: "/signup",
+        element: <SignupPage />,
+    },
+    {
+        path: "/pending-approval",
+        element: <PendingApprovalPage />,
+    },
 ]);
