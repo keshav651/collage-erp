@@ -5,11 +5,10 @@ import LoginPage from "../pages/auth/LoginPage";
 import SignupPage from "../pages/auth/SignUpPage";
 import PendingApprovalPage from "../pages/auth/PendingApprovalPage";
 import AdminDashboard from "../pages/admin/AdminDashboard";
+import TeacherDashboard from "../pages/teacher/TeacherDashboard";
 import ProtectedRoute from "../components/auth/ProtectedRoute";
 
-function TeacherDashboardPlaceholder() {
-  return <h1>Teacher Dashboard</h1>;
-}
+
 
 export const router = createBrowserRouter([
   // Public routes
@@ -43,7 +42,7 @@ export const router = createBrowserRouter([
     children: [
       {
         path: "/teacher/dashboard",
-        element: <TeacherDashboardPlaceholder />,
+        element: <TeacherDashboard />,
       },
     ],
   },

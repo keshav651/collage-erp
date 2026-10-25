@@ -129,11 +129,11 @@ export const getTeacherUnitTestMarks = async (
     const access = await getAuthorizedTeacher(authReq, testId);
 
     if ("error" in access) {
-  return sendAuthorizationError(
-    res,
-    access.error ?? "FORBIDDEN"
-  );
-}
+      return sendAuthorizationError(
+        res,
+        access.error ?? "FORBIDDEN"
+      );
+    }
 
     const { teacher, test } = access;
     const semesterNumber = test.cycle.semester.number;
@@ -230,12 +230,12 @@ export const saveTeacherUnitTestMarks = async (
 
     const access = await getAuthorizedTeacher(authReq, testId);
 
-   if ("error" in access) {
-  return sendAuthorizationError(
-    res,
-    access.error ?? "FORBIDDEN"
-  );
-}
+    if ("error" in access) {
+      return sendAuthorizationError(
+        res,
+        access.error ?? "FORBIDDEN"
+      );
+    }
 
     const { teacher, test } = access;
     const body = req.body as { marks?: unknown };
@@ -407,6 +407,9 @@ export const getMyUnitTests = async (
         academicYear: true,
       },
     });
+
+    console.log("Teacher ID:", teacher.id);
+    console.log("Active assignments:", assignments);
 
     const tests = await prisma.unitTest.findMany({
       where: {
