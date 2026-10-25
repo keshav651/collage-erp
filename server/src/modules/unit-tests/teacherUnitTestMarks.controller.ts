@@ -408,8 +408,8 @@ export const getMyUnitTests = async (
       },
     });
 
-    console.log("Teacher ID:", teacher.id);
-    console.log("Active assignments:", assignments);
+    // console.log("Teacher ID:", teacher.id);
+    // console.log("Active assignments:", assignments);
 
     const tests = await prisma.unitTest.findMany({
       where: {

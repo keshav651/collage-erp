@@ -151,12 +151,16 @@ export const approveTeacher = async (
 };
 
 // Get all active teachers
+
+// Get all teachers, including active and inactive
 export const getAllTeachers = async () => {
   return prisma.teacherProfile.findMany({
     where: {
       user: {
         role: "TEACHER",
-        status: "ACTIVE",
+        status: {
+          in: ["ACTIVE", "INACTIVE"],
+        },
       },
     },
     select: {
@@ -184,6 +188,7 @@ export const getAllTeachers = async () => {
     },
   });
 };
+
 
 
 
