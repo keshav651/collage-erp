@@ -1,35 +1,50 @@
+
 import { createBrowserRouter } from "react-router-dom";
+
 import LoginPage from "../pages/auth/LoginPage";
 import SignupPage from "../pages/auth/SignUpPage";
 import PendingApprovalPage from "../pages/auth/PendingApprovalPage";
-
-function AdminDashboardPlaceholder() {
-    return <h1>Admin Dashboard</h1>;
-}
+import AdminDashboard from "../pages/admin/AdminDashboard";
+import ProtectedRoute from "../components/auth/ProtectedRoute";
 
 function TeacherDashboardPlaceholder() {
-    return <h1>Teacher Dashboard</h1>;
+  return <h1>Teacher Dashboard</h1>;
 }
 
 export const router = createBrowserRouter([
-    {
-        path: "/",
-        element: <LoginPage />,
-    },
-    {
+  // Public routes
+  {
+    path: "/",
+    element: <LoginPage />,
+  },
+  {
+    path: "/signup",
+    element: <SignupPage />,
+  },
+  {
+    path: "/pending-approval",
+    element: <PendingApprovalPage />,
+  },
+
+  // Admin-only routes
+  {
+    element: <ProtectedRoute allowedRoles={["ADMIN"]} />,
+    children: [
+      {
         path: "/admin/dashboard",
-        element: <AdminDashboardPlaceholder />,
-    },
-    {
+        element: <AdminDashboard />,
+      },
+    ],
+  },
+
+  // Teacher-only routes
+  {
+    element: <ProtectedRoute allowedRoles={["TEACHER"]} />,
+    children: [
+      {
         path: "/teacher/dashboard",
         element: <TeacherDashboardPlaceholder />,
-    },
-    {
-        path: "/signup",
-        element: <SignupPage />,
-    },
-    {
-        path: "/pending-approval",
-        element: <PendingApprovalPage />,
-    },
+      },
+    ],
+  },
 ]);

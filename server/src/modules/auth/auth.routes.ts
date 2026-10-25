@@ -6,7 +6,8 @@ import { adminLogin } from "./admin-auth.controller.js";
 import {
   login,
   changePassword,
-  logout
+  logout,
+  getCurrentUser
 } from "./auth.controller.js";
 
 import { authenticateToken } from "../../middlewares/auth.middleware.js";
@@ -28,6 +29,9 @@ router.patch(
   authenticateToken,
   changePassword
 );
+
+// Get currently authenticated user
+router.get("/me", authenticateToken, getCurrentUser);
 
 router.post("/logout", logout);
 

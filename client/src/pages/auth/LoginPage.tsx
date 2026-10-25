@@ -2,8 +2,9 @@ import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { useState, type FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { loginUser } from "../../api/authApi";
 import { useNavigate } from "react-router-dom";
+import { loginUser } from "../../api/authApi";
+import { useAuth } from "../../context/AuthContext";
 
 export default function LoginPage() {
     const [email, setEmail] = useState("");
@@ -12,16 +13,27 @@ export default function LoginPage() {
 
     const navigate = useNavigate();
 
+    const { setUser } = useAuth();
+
     const loginMutation = useMutation({
         mutationFn: loginUser,
 
         onSuccess: (response) => {
-            const role = response.data.user.role;
+            const user = response.data.user;
+
+            setUser({
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                status: user.status,
+            });
+
             toast.success("Login successful!");
 
-            if (role === "ADMIN") {
+            if (user.role === "ADMIN") {
                 navigate("/admin/dashboard", { replace: true });
-            } else if (role === "TEACHER") {
+            } else if (user.role === "TEACHER") {
                 navigate("/teacher/dashboard", { replace: true });
             }
         },

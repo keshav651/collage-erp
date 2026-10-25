@@ -51,3 +51,10 @@ export async function logoutUser(): Promise<{
   const response = await api.post("/auth/logout");
   return response.data;
 }
+
+
+
+export async function getCurrentUser() {
+  const response = await api.get("/auth/me");
+  return response.data;
+}

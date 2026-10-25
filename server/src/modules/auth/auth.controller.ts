@@ -1,6 +1,8 @@
 
 import type { Request, Response, NextFunction } from "express";
 import bcrypt from "bcryptjs";
+import type { AuthenticatedRequest } from "../../middlewares/auth.middleware.js";
+
 
 import prisma from "../../config/prisma.js";
 import { signAuthToken } from "../../utils/jwt.js";
@@ -215,4 +217,56 @@ export const logout = async (
     success: true,
     message: "Logout successful",
   });
+};
+
+
+// Get currently authenticated Admin or Teacher
+export const getCurrentUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required",
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        status: true,
+      },
+    });
+
+    if (
+      !user ||
+      !["ADMIN", "TEACHER"].includes(user.role) ||
+      user.status !== "ACTIVE"
+    ) {
+      return res.status(401).json({
+        success: false,
+        message: "User account is not available",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Current user fetched successfully",
+      data: {
+        user,
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
 };
