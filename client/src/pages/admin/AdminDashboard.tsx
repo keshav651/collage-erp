@@ -10,6 +10,8 @@ import {
   Save,
 } from "lucide-react";
 
+import StudentManagement from "./students/StudentManagement";
+
 import usePendingTeachers from "../../hooks/usePendingTeachers";
 import useBranches from "../../hooks/useBranches";
 import useTeachers from "../../hooks/useTeachers";
@@ -203,8 +205,7 @@ export default function AdminDashboard() {
 
   const handleDeactivateTeacher = async (teacher: Teacher) => {
     const confirmed = window.confirm(
-      `Are you sure you want to deactivate ${
-        teacher.name || "this teacher"
+      `Are you sure you want to deactivate ${teacher.name || "this teacher"
       }?`
     );
 
@@ -612,11 +613,10 @@ export default function AdminDashboard() {
 
                     <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
                       <span
-                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                          isInactive
+                        className={`rounded-full px-3 py-1 text-xs font-semibold ${isInactive
                             ? "bg-gray-100 text-gray-700"
                             : "bg-green-50 text-green-700"
-                        }`}
+                          }`}
                       >
                         {teacher.user?.status || "ACTIVE"}
                       </span>
@@ -651,6 +651,11 @@ export default function AdminDashboard() {
             </div>
           )}
         </div>
+
+        {/* Student Management */}
+        <StudentManagement />
+
+        
       </section>
 
       {/* Approve Teacher Modal */}

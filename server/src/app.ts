@@ -9,6 +9,7 @@ import studentRoutes from "./modules/students/students.routes.js";
 import adminRoutes from "./modules/admin/admin.routes.js";
 import branchRoutes from "./modules/branches/branches.routes.js";
 import teacherUnitTestMarksRoutes from "./modules/unit-tests/teacherUnitTestMarks.routes.js";
+import semesterRoutes from "./modules/semesters/semesters.routes.js";
 
 
 
@@ -40,6 +41,7 @@ app.use("/api/auth-test", authTestRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/admin/branches", branchRoutes);
+app.use("/api/admin/semesters", semesterRoutes);
 app.use("/api/teacher", teacherUnitTestMarksRoutes);
 
 // Health check

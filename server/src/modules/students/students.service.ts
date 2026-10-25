@@ -64,3 +64,10 @@ export const setStudentStatus = async (
     data: { isActive },
   });
 };
+
+
+export const deleteStudent = async (id: string) => {
+  return prisma.student.delete({
+    where: { id },
+  });
+};

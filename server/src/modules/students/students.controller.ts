@@ -16,6 +16,7 @@ import {
     createStudent,
     updateStudent,
     setStudentStatus,
+    deleteStudent,
 } from "./students.service.js";
 
 // Validate student ID from route params
@@ -257,4 +258,41 @@ export const updatingStudentStatus = async (
     } catch (error) {
         return next(error);
     }
+};
+
+export const deletingStudent = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { id } = req.params;
+
+    if (typeof id !== "string") {
+  return res.status(400).json({
+    success: false,
+    message: "Invalid student ID",
+  });
+}
+
+    const student = await prisma.student.findUnique({
+      where: { id },
+    });
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found",
+      });
+    }
+
+    await deleteStudent(id);
+
+    return res.status(200).json({
+      success: true,
+      message: "Student permanently deleted",
+    });
+  } catch (error) {
+    next(error);
+  }
 };

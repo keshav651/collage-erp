@@ -7,6 +7,7 @@ import {
     creatingStudent,
     updatingStudent,
     updatingStudentStatus,
+    deletingStudent
 } from "./students.controller.js";
 
 import { authenticateToken } from "../../middlewares/auth.middleware.js";
@@ -31,5 +32,7 @@ router.patch("/:id", updatingStudent);
 
 // UPDATE student active/inactive status
 router.patch("/:id/status", updatingStudentStatus);
+
+router.delete("/:id", deletingStudent);
 
 export default router;
