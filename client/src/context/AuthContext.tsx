@@ -1,7 +1,7 @@
-
 import {
   createContext,
   useContext,
+  useEffect,
   useState,
   type ReactNode,
 } from "react";
@@ -31,36 +31,40 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<AuthUser | null>(null);
 
-  const { isPending } = useQuery({
+  const {
+    data: currentUser,
+    isPending,
+    isError,
+  } = useQuery({
     queryKey: ["auth", "current-user"],
-    queryFn: getCurrentUser,
-    retry: false,
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
-    select: (response) => response.data.user as AuthUser,
-    // Existing login flow sets the user directly.
-    // This query verifies the session when the app initializes.
-  });
-
-  const query = useQuery({
-    queryKey: ["auth", "current-user"],
-    queryFn: getCurrentUser,
+    queryFn: async () => {
+      const response = await getCurrentUser();
+      return response.data.user as AuthUser;
+    },
     retry: false,
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
 
-  // Restore user from the API when the session query succeeds.
-  const currentUser = query.data?.data?.user as AuthUser | undefined;
+  useEffect(() => {
+    if (currentUser) {
+      setUser(currentUser);
+    } else if (isError) {
+      setUser(null);
+    }
+  }, [currentUser, isError]);
 
-  if (currentUser && user?.id !== currentUser.id) {
-    setUser(currentUser);
-  }
-
-  const isLoading = isPending;
+  const isLoading =
+    isPending || (!!currentUser && user?.id !== currentUser.id);
 
   return (
-    <AuthContext.Provider value={{ user, setUser, isLoading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        setUser,
+        isLoading,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
