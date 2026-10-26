@@ -70,6 +70,7 @@ export async function getAllTeachers(): Promise<TeachersResponse> {
   return response.data;
 }
 
+
 export interface ApproveTeacherResponse {
   success: boolean;
   message: string;
@@ -77,10 +78,13 @@ export interface ApproveTeacherResponse {
     id: string;
     userId?: string;
     name?: string;
+    email?: string;
     teacherCode?: string;
     branchId?: string;
+    temporaryPassword?: string;
   };
 }
+
 
 export async function approveTeacher(
   userId: string,
