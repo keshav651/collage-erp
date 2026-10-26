@@ -7,6 +7,10 @@ import PendingApprovalPage from "../pages/auth/PendingApprovalPage";
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import TeacherDashboard from "../pages/teacher/TeacherDashboard";
 import ProtectedRoute from "../components/auth/ProtectedRoute";
+import StudentManagementPage from "../pages/admin/students/StudentManagementPage";
+import TeacherManagementPage from "../pages/admin/teachers/TeacherManagementPage";
+import BranchManagementPage from "../pages/admin/branches/BranchManagementPage";
+
 
 
 
@@ -32,6 +36,18 @@ export const router = createBrowserRouter([
       {
         path: "/admin/dashboard",
         element: <AdminDashboard />,
+      },
+      {
+        path: "/admin/students",
+        element: <StudentManagementPage />,
+      },
+      {
+        path: "/admin/teachers",
+        element: <TeacherManagementPage />
+      },
+      {
+        path: "/admin/branches",
+        element: <BranchManagementPage />
       },
     ],
   },

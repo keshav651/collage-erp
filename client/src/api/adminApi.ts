@@ -40,6 +40,29 @@ export async function getAllBranches(): Promise<BranchesResponse> {
   return response.data;
 }
 
+export interface CreateBranchPayload {
+  name: string;
+  codePrefix: string;
+}
+
+export interface CreateBranchResponse {
+  success: boolean;
+  message: string;
+  data: Branch;
+}
+
+export async function createBranch(
+  payload: CreateBranchPayload
+): Promise<CreateBranchResponse> {
+  const response = await api.post<CreateBranchResponse>(
+    "/admin/branches",
+    payload
+  );
+
+  return response.data;
+}
+
+
 export interface Teacher {
   id: string;
   userId: string;
