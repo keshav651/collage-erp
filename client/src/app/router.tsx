@@ -10,7 +10,8 @@ import ProtectedRoute from "../components/auth/ProtectedRoute";
 import StudentManagementPage from "../pages/admin/students/StudentManagementPage";
 import TeacherManagementPage from "../pages/admin/teachers/TeacherManagementPage";
 import BranchManagementPage from "../pages/admin/branches/BranchManagementPage";
-
+import UnitTestMarksEntryPage from "../pages/teacher/UnitTestMarksEntryPage";
+import UnitTestManagementPage from "../pages/admin/unit-tests/UnitTestManagementPage";
 
 
 
@@ -49,6 +50,10 @@ export const router = createBrowserRouter([
         path: "/admin/branches",
         element: <BranchManagementPage />
       },
+      {
+        path: "/admin/unit-tests",
+        element: <UnitTestManagementPage />,
+      },
     ],
   },
 
@@ -60,6 +65,10 @@ export const router = createBrowserRouter([
         path: "/teacher/dashboard",
         element: <TeacherDashboard />,
       },
+      {
+        path: "/teacher/unit-tests",
+        element: <UnitTestMarksEntryPage />,
+      }
     ],
   },
 ]);

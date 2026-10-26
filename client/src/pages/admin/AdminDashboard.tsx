@@ -83,6 +83,13 @@ export default function AdminDashboard() {
         >
           Branch Management
         </Link>
+
+        <Link
+          to="/admin/unit-tests"
+          className="rounded-lg bg-white px-5 py-3 font-semibold text-[#921B25] shadow-sm ring-1 ring-[#921B25]/20 transition hover:bg-red-50"
+        >
+          Unit Test Management
+        </Link>
       </nav>
 
       {/* Dashboard overview */}

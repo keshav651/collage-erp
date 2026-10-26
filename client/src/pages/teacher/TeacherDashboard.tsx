@@ -1,6 +1,7 @@
 import { useAuth } from "../../context/AuthContext";
 import useLogout from "../../hooks/useLogout";
 import { useTeacherUnitTests } from "../../hooks/useTeacherUnitTests";
+import { Link } from "react-router-dom";
 
 import {
   AlertCircle,
@@ -111,6 +112,13 @@ export default function TeacherDashboard() {
               Quick Actions
             </h2>
 
+            <Link
+              to="/teacher/unit-tests"
+              className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white shadow-md transition hover:bg-blue-700"
+            >
+              📊 Enter Unit Test Marks
+            </Link>
+
             <p className="mt-1 text-sm text-gray-500">
               Choose a module to continue your work.
             </p>
@@ -138,11 +146,10 @@ export default function TeacherDashboard() {
                   </p>
 
                   <p
-                    className={`mt-4 text-xs font-medium ${
-                      action.available
+                    className={`mt-4 text-xs font-medium ${action.available
                         ? "text-green-700"
                         : "text-gray-500"
-                    }`}
+                      }`}
                   >
                     {action.available
                       ? "API integration in progress"
@@ -276,8 +283,8 @@ export default function TeacherDashboard() {
                           Test date:{" "}
                           {test.testDate
                             ? new Date(
-                                test.testDate
-                              ).toLocaleDateString("en-IN")
+                              test.testDate
+                            ).toLocaleDateString("en-IN")
                             : "Not scheduled"}
                         </p>
 
