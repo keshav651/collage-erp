@@ -4,9 +4,6 @@ import {
     GraduationCap,
     Plus,
     Search,
-    Download,
-    Upload,
-    FileSpreadsheet,
 } from "lucide-react"; import { toast } from "sonner";
 import useDeleteStudent from "../../../hooks/useDeleteStudent";
 
@@ -16,6 +13,8 @@ import useSemesters from "../../../hooks/useSemesters";
 import useCreateStudent from "../../../hooks/useCreateStudent";
 import useUpdateStudent from "../../../hooks/useUpdateStudent";
 import useUpdateStudentStatus from "../../../hooks/useUpdateStudentStatus";
+import StudentFormModal from "./StudentFormModal";
+import StudentImportExport from "./StudentImportExport";
 
 import useImportStudents from "../../../hooks/useImportStudents";
 import useExportStudents from "../../../hooks/useExportStudents";
@@ -324,203 +323,24 @@ export default function StudentManagement() {
                 </div>
 
                 {/* Excel Import / Export */}
-                <div className="space-y-4 border-b border-gray-100 bg-gray-50/70 p-4 sm:p-5">
-                    <div className="flex items-center gap-2">
-                        <FileSpreadsheet size={20} className="text-[#921B25]" />
-                        <div>
-                            <h4 className="font-semibold text-gray-800">
-                                Excel Import & Export
-                            </h4>
-                            <p className="text-xs text-gray-500">
-                                Import multiple students or export student records.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                        {/* Download Template */}
-                        <button
-                            type="button"
-                            onClick={handleDownloadTemplate}
-                            disabled={downloadTemplateMutation.isPending}
-                            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[#921B25]/30 bg-white px-4 py-2 text-sm font-semibold text-[#921B25] transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            <Download size={17} />
-                            {downloadTemplateMutation.isPending
-                                ? "Downloading..."
-                                : "Download Template"}
-                        </button>
-
-                        {/* Import Excel */}
-                        <label
-                            className={`inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg bg-[#921B25] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#74151d] ${importStudentsMutation.isPending
-                                ? "pointer-events-none opacity-50"
-                                : ""
-                                }`}
-                        >
-                            <Upload size={17} />
-                            {importStudentsMutation.isPending
-                                ? "Importing..."
-                                : "Import Excel"}
-
-                            <input
-                                type="file"
-                                accept=".xlsx"
-                                onChange={handleImportStudents}
-                                disabled={importStudentsMutation.isPending}
-                                className="hidden"
-                            />
-                        </label>
-
-                        {/* Export Excel */}
-                        <button
-                            type="button"
-                            onClick={handleExportStudents}
-                            disabled={exportStudentsMutation.isPending}
-                            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            <FileSpreadsheet size={17} />
-                            {exportStudentsMutation.isPending
-                                ? "Exporting..."
-                                : "Export Excel"}
-                        </button>
-                    </div>
-
-                    {/* Optional export filters */}
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <div>
-                            <label
-                                htmlFor="export-branch"
-                                className="mb-1 block text-xs font-medium text-gray-600"
-                            >
-                                Export by branch
-                            </label>
-
-                            <select
-                                id="export-branch"
-                                value={selectedExportBranch}
-                                onChange={(event) =>
-                                    setSelectedExportBranch(event.target.value)
-                                }
-                                className="min-h-10 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#921B25] focus:ring-2 focus:ring-red-100"
-                            >
-                                <option value="">All branches</option>
-                                {branches.map((branch) => (
-                                    <option key={branch.id} value={branch.id}>
-                                        {branch.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div>
-                            <label
-                                htmlFor="export-semester"
-                                className="mb-1 block text-xs font-medium text-gray-600"
-                            >
-                                Export by semester
-                            </label>
-
-                            <select
-                                id="export-semester"
-                                value={selectedExportSemester}
-                                onChange={(event) =>
-                                    setSelectedExportSemester(event.target.value)
-                                }
-                                className="min-h-10 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#921B25] focus:ring-2 focus:ring-red-100"
-                            >
-                                <option value="">All semesters</option>
-                                {semesters.map((semester) => (
-                                    <option key={semester.id} value={semester.id}>
-                                        Semester {semester.number}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
-                </div>
+                <StudentImportExport
+                    branches={branches}
+                    semesters={semesters}
+                    selectedExportBranch={selectedExportBranch}
+                    selectedExportSemester={selectedExportSemester}
+                    onExportBranchChange={setSelectedExportBranch}
+                    onExportSemesterChange={setSelectedExportSemester}
+                    onDownloadTemplate={handleDownloadTemplate}
+                    onImportStudents={handleImportStudents}
+                    onExportStudents={handleExportStudents}
+                    isDownloadingTemplate={downloadTemplateMutation.isPending}
+                    isImporting={importStudentsMutation.isPending}
+                    isExporting={exportStudentsMutation.isPending}
+                    importResults={importResults}
+                    onDismissImportResults={() => setImportResults(null)}
+                />
 
                 {/* Excel Import Results */}
-                {importResults && (
-                    <div className="border-b border-gray-100 p-4 sm:p-5">
-                        <div className="mb-4 flex items-center justify-between gap-3">
-                            <h4 className="font-semibold text-gray-800">
-                                Import Report
-                            </h4>
-
-                            <button
-                                type="button"
-                                onClick={() => setImportResults(null)}
-                                className="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-500 hover:bg-gray-100"
-                            >
-                                Dismiss
-                            </button>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                            <div className="rounded-lg border border-gray-200 bg-white p-3">
-                                <p className="text-xs text-gray-500">Total Records</p>
-                                <p className="mt-1 text-2xl font-bold text-gray-800">
-                                    {importResults.totalRecords}
-                                </p>
-                            </div>
-
-                            <div className="rounded-lg border border-green-200 bg-green-50 p-3">
-                                <p className="text-xs text-green-700">Imported Successfully</p>
-                                <p className="mt-1 text-2xl font-bold text-green-700">
-                                    {importResults.successfulRecords}
-                                </p>
-                            </div>
-
-                            <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-                                <p className="text-xs text-red-700">Failed Records</p>
-                                <p className="mt-1 text-2xl font-bold text-red-700">
-                                    {importResults.failedRecords}
-                                </p>
-                            </div>
-                        </div>
-
-                        {importResults.errors.length > 0 && (
-                            <div className="mt-4 overflow-hidden rounded-lg border border-red-200">
-                                <div className="bg-red-50 px-4 py-3">
-                                    <h5 className="text-sm font-semibold text-red-800">
-                                        Records Requiring Attention
-                                    </h5>
-                                </div>
-
-                                <div className="max-h-64 overflow-auto">
-                                    <table className="w-full min-w-[420px] text-left text-sm">
-                                        <thead className="sticky top-0 bg-gray-50 text-gray-600">
-                                            <tr>
-                                                <th className="px-3 py-2 font-medium">Row</th>
-                                                <th className="px-3 py-2 font-medium">Roll Number</th>
-                                                <th className="px-3 py-2 font-medium">Reason</th>
-                                            </tr>
-                                        </thead>
-
-                                        <tbody className="divide-y divide-gray-100">
-                                            {importResults.errors.map((error, index) => (
-                                                <tr key={`${error.row}-${index}`}>
-                                                    <td className="px-3 py-2 text-gray-700">
-                                                        {error.row}
-                                                    </td>
-
-                                                    <td className="px-3 py-2 text-gray-700">
-                                                        {error.rollNo || "—"}
-                                                    </td>
-
-                                                    <td className="px-3 py-2 text-red-700">
-                                                        {error.reason}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
 
                 {/* Search */}
                 <div className="border-b border-gray-100 p-4 sm:p-5">
@@ -557,167 +377,19 @@ export default function StudentManagement() {
 
             {/* Create/Edit Student Modal */}
             {isFormOpen && (
-                <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4">
-                    <div
-                        role="dialog"
-                        aria-modal="true"
-                        aria-labelledby="student-form-title"
-                        className="max-h-[90vh] w-full overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:max-w-lg sm:rounded-2xl sm:p-6"
-                    >
-                        <div className="mb-5">
-                            <h3
-                                id="student-form-title"
-                                className="text-xl font-bold text-gray-800"
-                            >
-                                {selectedStudent ? "Edit Student" : "Add Student"}
-                            </h3>
-
-                            <p className="mt-1 text-sm text-gray-500">
-                                Enter the student's details below.
-                            </p>
-                        </div>
-
-                        <form onSubmit={handleStudentSubmit} className="space-y-4">
-                            <div>
-                                <label
-                                    htmlFor="student-name"
-                                    className="mb-1.5 block text-sm font-medium text-gray-700"
-                                >
-                                    Student Name
-                                </label>
-
-                                <input
-                                    id="student-name"
-                                    name="name"
-                                    type="text"
-                                    required
-                                    value={formData.name}
-                                    onChange={handleInputChange}
-                                    placeholder="Enter student name"
-                                    className="min-h-11 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-[#921B25] focus:ring-2 focus:ring-red-100"
-                                />
-                            </div>
-
-                            <div>
-                                <label
-                                    htmlFor="student-roll-no"
-                                    className="mb-1.5 block text-sm font-medium text-gray-700"
-                                >
-                                    Roll Number
-                                </label>
-
-                                <input
-                                    id="student-roll-no"
-                                    name="rollNo"
-                                    type="text"
-                                    required
-                                    value={formData.rollNo}
-                                    onChange={handleInputChange}
-                                    placeholder="Enter roll number"
-                                    className="min-h-11 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-[#921B25] focus:ring-2 focus:ring-red-100"
-                                />
-                            </div>
-
-                            <div>
-                                <label
-                                    htmlFor="student-branch"
-                                    className="mb-1.5 block text-sm font-medium text-gray-700"
-                                >
-                                    Branch
-                                </label>
-
-                                <select
-                                    id="student-branch"
-                                    name="branchId"
-                                    required
-                                    value={formData.branchId}
-                                    onChange={handleInputChange}
-                                    className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#921B25] focus:ring-2 focus:ring-red-100"
-                                >
-                                    <option value="">Select branch</option>
-
-                                    {branches.map((branch) => (
-                                        <option key={branch.id} value={branch.id}>
-                                            {branch.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label
-                                    htmlFor="student-semester"
-                                    className="mb-1.5 block text-sm font-medium text-gray-700"
-                                >
-                                    Semester
-                                </label>
-
-                                <select
-                                    id="student-semester"
-                                    name="semesterId"
-                                    value={formData.semesterId}
-                                    onChange={handleInputChange}
-                                    required
-                                    className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
-                                >
-                                    <option value="">
-                                        {semestersLoading
-                                            ? "Loading semesters..."
-                                            : semestersError
-                                                ? "Failed to load semesters"
-                                                : semesters.length === 0
-                                                    ? "No semesters available"
-                                                    : "Select Semester"}
-                                    </option>
-
-                                    {semesters.map((semester) => (
-                                        <option key={semester.id} value={semester.id}>
-                                            Semester {semester.number}
-                                        </option>
-                                    ))}
-                                </select>
-
-                                {/*semester dropdowm*/}
-                                {semestersError && (
-                                    <p className="mt-1 text-sm text-red-600">
-                                        {semestersErrorDetails instanceof Error
-                                            ? semestersErrorDetails.message
-                                            : "Unable to load semesters."}
-                                    </p>
-                                )}
-
-                                {/* Temporary debugging: remove after checking
-                                <pre className="mt-2 overflow-auto rounded bg-gray-100 p-2 text-xs text-gray-800">
-                                    {JSON.stringify(semesters, null, 2)}
-                                </pre> */}
-
-                            </div>
-
-                            <div className="flex flex-col-reverse gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:justify-end">
-                                <button
-                                    type="button"
-                                    onClick={closeStudentModal}
-                                    disabled={isSaving}
-                                    className="min-h-11 rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                                >
-                                    Cancel
-                                </button>
-
-                                <button
-                                    type="submit"
-                                    disabled={isSaving}
-                                    className="min-h-11 rounded-lg bg-[#921B25] px-5 py-2 text-sm font-semibold text-white hover:bg-[#74151d] disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                    {isSaving
-                                        ? "Saving..."
-                                        : selectedStudent
-                                            ? "Update Student"
-                                            : "Create Student"}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+                <StudentFormModal
+                    selectedStudent={selectedStudent}
+                    formData={formData}
+                    branches={branches}
+                    semesters={semesters}
+                    semestersLoading={semestersLoading}
+                    semestersError={semestersError}
+                    semestersErrorDetails={semestersErrorDetails}
+                    isSaving={isSaving}
+                    onClose={closeStudentModal}
+                    onInputChange={handleInputChange}
+                    onSubmit={handleStudentSubmit}
+                />
             )}
         </>
     );
