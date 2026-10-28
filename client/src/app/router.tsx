@@ -12,7 +12,7 @@ import TeacherManagementPage from "../pages/admin/teachers/TeacherManagementPage
 import BranchManagementPage from "../pages/admin/branches/BranchManagementPage";
 import UnitTestMarksEntryPage from "../pages/teacher/UnitTestMarksEntryPage";
 import UnitTestManagementPage from "../pages/admin/unit-tests/UnitTestManagementPage";
-
+import SubjectManagementPage from "../pages/admin/subjects/SubjectManagementPage";
 
 
 export const router = createBrowserRouter([
@@ -54,6 +54,10 @@ export const router = createBrowserRouter([
         path: "/admin/unit-tests",
         element: <UnitTestManagementPage />,
       },
+      {
+        path: "/admin/subjects",
+        element : <SubjectManagementPage />
+      }
     ],
   },
 
