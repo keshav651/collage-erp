@@ -1,5 +1,6 @@
 import type { Teacher } from "../../../api/adminApi";
 
+
 interface TeacherManagementSectionProps {
   teachers: Teacher[];
   isLoading: boolean;

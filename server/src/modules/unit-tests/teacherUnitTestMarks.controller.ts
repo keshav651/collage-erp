@@ -21,8 +21,14 @@ async function getAuthorizedTeacher(
   }
 
   const teacher = await prisma.teacherProfile.findUnique({
-    where: { userId: req.user.userId },
-    select: { id: true, branchId: true, name: true },
+    where: {
+      userId: req.user.userId,
+    },
+    select: {
+      id: true,
+      branchId: true,
+      name: true,
+    },
   });
 
   if (!teacher) {
@@ -30,10 +36,16 @@ async function getAuthorizedTeacher(
   }
 
   const test = await prisma.unitTest.findUnique({
-    where: { id: testId },
+    where: {
+      id: testId,
+    },
     include: {
       subject: true,
-      cycle: { include: { semester: true } },
+      cycle: {
+        include: {
+          semester: true,
+        },
+      },
     },
   });
 
@@ -41,6 +53,33 @@ async function getAuthorizedTeacher(
     return { error: "TEST_NOT_FOUND" as const };
   }
 
+  const semesterNumber = test.cycle.semester.number;
+
+  // Subject and test cycle must belong to the same semester.
+  if (test.subject.semesterId !== test.cycle.semesterId) {
+    return { error: "SEMESTER_MISMATCH" as const };
+  }
+
+  // Validate common subjects for semesters 1 and 2.
+  if (semesterNumber <= 2) {
+    if (
+      test.subject.branchId !== null ||
+      test.cycle.branchId !== null
+    ) {
+      return { error: "BRANCH_MISMATCH" as const };
+    }
+  } else {
+    // Validate branch-specific subjects for semester 3 onwards.
+    if (
+      !test.subject.branchId ||
+      test.subject.branchId !== teacher.branchId ||
+      test.cycle.branchId !== teacher.branchId
+    ) {
+      return { error: "BRANCH_MISMATCH" as const };
+    }
+  }
+
+  // Verify active teacher assignment for the subject and academic year.
   const assignment = await prisma.teacherSubjectAssignment.findFirst({
     where: {
       teacherId: teacher.id,
@@ -48,21 +87,19 @@ async function getAuthorizedTeacher(
       academicYear: test.cycle.academicYear,
       active: true,
     },
-    select: { id: true },
+    select: {
+      id: true,
+    },
   });
 
   if (!assignment) {
     return { error: "SUBJECT_NOT_ASSIGNED" as const };
   }
 
-  if (
-    test.subject.branchId &&
-    test.subject.branchId !== teacher.branchId
-  ) {
-    return { error: "BRANCH_MISMATCH" as const };
-  }
-
-  return { teacher, test };
+  return {
+    teacher,
+    test,
+  };
 }
 
 function sendAuthorizationError(res: Response, error: string) {
@@ -374,12 +411,13 @@ export const saveTeacherUnitTestMarks = async (
 };
 
 // GET /api/teacher/unit-tests
+// GET /api/teacher/unit-tests
 export const getMyUnitTests = async (
   req: AuthenticatedRequest,
   res: Response
 ) => {
   try {
-    if (req.user?.role !== "TEACHER") {
+    if (req.user?.role !== "TEACHER" || !req.user.userId) {
       return res.status(403).json({
         success: false,
         message: "Only teachers can access this resource.",
@@ -387,7 +425,13 @@ export const getMyUnitTests = async (
     }
 
     const teacher = await prisma.teacherProfile.findUnique({
-      where: { userId: req.user.userId },
+      where: {
+        userId: req.user.userId,
+      },
+      select: {
+        id: true,
+        branchId: true,
+      },
     });
 
     if (!teacher) {
@@ -397,6 +441,7 @@ export const getMyUnitTests = async (
       });
     }
 
+    // Fetch active subject assignments for this teacher.
     const assignments = await prisma.teacherSubjectAssignment.findMany({
       where: {
         teacherId: teacher.id,
@@ -408,30 +453,76 @@ export const getMyUnitTests = async (
       },
     });
 
-    // console.log("Teacher ID:", teacher.id);
-    // console.log("Active assignments:", assignments);
+    // No active assignments means no tests are available.
+    if (assignments.length === 0) {
+      return res.json({
+        success: true,
+        data: [],
+      });
+    }
 
+    // Fetch only tests belonging to assigned subjects and academic years.
     const tests = await prisma.unitTest.findMany({
       where: {
         OR: assignments.map((assignment) => ({
           subjectId: assignment.subjectId,
+
           cycle: {
             academicYear: assignment.academicYear,
+
+            // Subject and test cycle must belong to the same semester.
+            semesterId: {
+              equals: undefined,
+            },
           },
         })),
       },
       include: {
         subject: true,
         cycle: {
-          include: { semester: true },
+          include: {
+            semester: true,
+          },
         },
       },
-      orderBy: [{ testDate: "asc" }, { testNumber: "asc" }],
+      orderBy: [
+        {
+          testDate: "asc",
+        },
+        {
+          testNumber: "asc",
+        },
+      ],
+    });
+
+    // Validate branch and semester relationships before returning tests.
+    const filteredTests = tests.filter((test) => {
+      const semesterNumber = test.cycle.semester.number;
+
+      // The subject and cycle must always belong to the same semester.
+      if (test.subject.semesterId !== test.cycle.semesterId) {
+        return false;
+      }
+
+      // Semesters 1 and 2 use common subjects.
+      if (semesterNumber <= 2) {
+        return (
+          test.subject.branchId === null &&
+          test.cycle.branchId === null
+        );
+      }
+
+      // Semester 3 onwards requires a matching branch.
+      return (
+        test.subject.branchId !== null &&
+        test.subject.branchId === teacher.branchId &&
+        test.cycle.branchId === teacher.branchId
+      );
     });
 
     return res.json({
       success: true,
-      data: tests,
+      data: filteredTests,
     });
   } catch (error) {
     console.error("getMyUnitTests error:", error);

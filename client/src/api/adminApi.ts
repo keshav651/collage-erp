@@ -78,6 +78,23 @@ export interface Teacher {
     name: string;
     codePrefix: string;
   };
+  assignments?: {
+  id: string;
+  subjectId: string;
+  academicYear: string;
+  active: boolean;
+  subject: {
+    id: string;
+    name: string;
+    code: string;
+    semesterId: string;
+    branchId: string | null;
+    semester?: {
+      id: string;
+      number: number;
+    };
+  };
+}[];
 }
 
 export interface TeachersResponse {
@@ -128,12 +145,16 @@ export async function approveTeacher(
 
 }
 
-  export interface UpdateTeacherPayload {
-    name?: string;
-    branchId?: string;
-    status?: "ACTIVE" | "INACTIVE";
-    password?: string;
-  }
+ export interface UpdateTeacherPayload {
+  name?: string;
+  branchId?: string;
+  status?: "ACTIVE" | "INACTIVE";
+  password?: string;
+
+  semesterId?: string;
+  subjectIds?: string[];
+  academicYear?: string;
+}
 
   export interface UpdateTeacherResponse {
     success: boolean;

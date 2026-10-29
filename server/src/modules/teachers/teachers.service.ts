@@ -216,6 +216,8 @@ export const approveTeacher = async (
 // Get all active teachers
 
 // Get all teachers, including active and inactive
+
+// Get all teachers, including active and inactive
 export const getAllTeachers = async () => {
   return prisma.teacherProfile.findMany({
     where: {
@@ -232,6 +234,7 @@ export const getAllTeachers = async () => {
       teacherCode: true,
       name: true,
       branchId: true,
+
       user: {
         select: {
           email: true,
@@ -239,18 +242,53 @@ export const getAllTeachers = async () => {
           status: true,
         },
       },
+
       branch: {
         select: {
           name: true,
           codePrefix: true,
         },
       },
+
+      // Fetch the teacher's currently active subject assignments
+      assignments: {
+        where: {
+          active: true,
+        },
+        select: {
+          id: true,
+          subjectId: true,
+          academicYear: true,
+
+          subject: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              semesterId: true,
+              branchId: true,
+
+              semester: {
+                select: {
+                  id: true,
+                  number: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          assignedAt: "desc",
+        },
+      },
     },
+
     orderBy: {
       name: "asc",
     },
   });
 };
+
 
 
 
@@ -305,88 +343,306 @@ type UpdateTeacherInput = {
   branchId?: string;
   status?: "ACTIVE" | "INACTIVE";
   passwordHash?: string;
+
+  // Subject assignment fields
+  semesterId?: string;
+  subjectIds?: string[];
+  academicYear?: string;
 };
 
 export const updateTeacher = async (
   userId: string,
   data: UpdateTeacherInput
 ) => {
-  const existingTeacher = await prisma.user.findFirst({
-    where: {
-      id: userId,
-      role: "TEACHER",
-      teacherProfile: {
-        isNot: null,
-      },
-    },
-    select: {
-      id: true,
-      email: true,
-      role: true,
-      status: true,
-      teacherProfile: {
-        select: {
-          teacherCode: true,
-        },
-      },
-    },
-  });
+  // Subject assignment fields must be provided together.
+  const assignmentFieldsProvided =
+    data.semesterId !== undefined ||
+    data.subjectIds !== undefined ||
+    data.academicYear !== undefined;
 
-  if (!existingTeacher) {
-    throw new Error("TEACHER_NOT_FOUND");
-  }
+  if (assignmentFieldsProvided) {
+    if (
+      typeof data.semesterId !== "string" ||
+      !data.semesterId.trim() ||
+      !Array.isArray(data.subjectIds) ||
+      !data.subjectIds.every(
+        (id) => typeof id === "string" && id.trim().length > 0
+      ) ||
+      typeof data.academicYear !== "string" ||
+      !data.academicYear.trim()
+    ) {
+      throw new Error("INVALID_ASSIGNMENT_DATA");
+    }
 
-  if (data.branchId) {
-    const branch = await prisma.branch.findUnique({
-      where: { id: data.branchId },
-      select: { id: true },
-    });
-
-    if (!branch) {
-      throw new Error("BRANCH_NOT_FOUND");
+    // Duplicate IDs can otherwise cause misleading validation results.
+    if (new Set(data.subjectIds).size !== data.subjectIds.length) {
+      throw new Error("DUPLICATE_SUBJECT_IDS");
     }
   }
 
-  return prisma.$transaction(async (tx) => {
-    const user = await tx.user.update({
-      where: { id: userId },
-      data: {
-        ...(data.name !== undefined && { name: data.name }),
-        ...(data.status !== undefined && { status: data.status }),
-        ...(data.passwordHash !== undefined && {
-          passwordHash: data.passwordHash,
-        }),
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        status: true,
-      },
-    });
+  return prisma.$transaction(
+    async (tx) => {
+      // 1. Find the teacher.
+      const existingTeacher = await tx.user.findFirst({
+        where: {
+          id: userId,
+          role: "TEACHER",
+          teacherProfile: {
+            isNot: null,
+          },
+        },
+        select: {
+          id: true,
+          teacherProfile: {
+            select: {
+              id: true,
+              branchId: true,
+            },
+          },
+        },
+      });
 
-    const profile = await tx.teacherProfile.update({
-      where: { userId },
-      data: {
-        ...(data.name !== undefined && { name: data.name }),
-        ...(data.branchId !== undefined && {
-          branchId: data.branchId,
-        }),
-      },
-      select: {
-        teacherCode: true,
-        name: true,
-        phone: true,
-        branchId: true,
-      },
-    });
+      if (!existingTeacher?.teacherProfile) {
+        throw new Error("TEACHER_NOT_FOUND");
+      }
 
-    return {
-      ...user,
-      teacherProfile: profile,
-    };
-  });
+      const teacherProfile = existingTeacher.teacherProfile;
+      const finalBranchId = data.branchId ?? teacherProfile.branchId;
+
+      // 2. Validate the branch.
+      const branch = await tx.branch.findUnique({
+        where: {
+          id: finalBranchId,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!branch) {
+        throw new Error("BRANCH_NOT_FOUND");
+      }
+
+      // 3. Update account and teacher profile.
+      const user = await tx.user.update({
+        where: {
+          id: userId,
+        },
+        data: {
+          ...(data.name !== undefined && {
+            name: data.name,
+          }),
+          ...(data.status !== undefined && {
+            status: data.status,
+          }),
+          ...(data.passwordHash !== undefined && {
+            passwordHash: data.passwordHash,
+          }),
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          status: true,
+        },
+      });
+
+      const profile = await tx.teacherProfile.update({
+        where: {
+          userId,
+        },
+        data: {
+          ...(data.name !== undefined && {
+            name: data.name,
+          }),
+          ...(data.branchId !== undefined && {
+            branchId: data.branchId,
+          }),
+        },
+        select: {
+          id: true,
+          userId: true,
+          teacherCode: true,
+          name: true,
+          phone: true,
+          branchId: true,
+        },
+      });
+
+      // 4. Synchronize assignments only when all assignment fields
+      // have been provided.
+      if (
+        assignmentFieldsProvided &&
+        data.semesterId !== undefined &&
+        data.subjectIds !== undefined &&
+        data.academicYear !== undefined
+      ) {
+        const semester = await tx.semester.findUnique({
+          where: {
+            id: data.semesterId,
+          },
+          select: {
+            id: true,
+            number: true,
+          },
+        });
+
+        if (!semester) {
+          throw new Error("SEMESTER_NOT_FOUND");
+        }
+
+        // Match the existing subject rules:
+        // Semesters 1-2 may have common subjects.
+        // Semesters 3+ require branch-specific subjects.
+        if (
+          semester.number > 2 &&
+          data.subjectIds.length > 0
+        ) {
+          const selectedSubjects = await tx.subject.findMany({
+            where: {
+              id: {
+                in: data.subjectIds,
+              },
+              semesterId: semester.id,
+              branchId: finalBranchId,
+            },
+            select: {
+              id: true,
+            },
+          });
+
+          if (selectedSubjects.length !== data.subjectIds.length) {
+            throw new Error("SUBJECTS_INVALID");
+          }
+        } else if (data.subjectIds.length > 0) {
+          const selectedSubjects = await tx.subject.findMany({
+            where: {
+              id: {
+                in: data.subjectIds,
+              },
+              semesterId: semester.id,
+              OR: [
+                {
+                  branchId: finalBranchId,
+                },
+                {
+                  branchId: null,
+                },
+              ],
+            },
+            select: {
+              id: true,
+            },
+          });
+
+          if (selectedSubjects.length !== data.subjectIds.length) {
+            throw new Error("SUBJECTS_INVALID");
+          }
+        }
+
+        // 5. Deactivate removed subjects only for this teacher,
+        // semester and academic year.
+        await tx.teacherSubjectAssignment.updateMany({
+          where: {
+            teacherId: profile.id,
+            academicYear: data.academicYear,
+            subject: {
+              semesterId: semester.id,
+            },
+            ...(data.subjectIds.length > 0
+              ? {
+                  subjectId: {
+                    notIn: data.subjectIds,
+                  },
+                }
+              : {}),
+            active: true,
+          },
+          data: {
+            active: false,
+          },
+        });
+
+        // 6. Create new assignments or reactivate existing ones.
+        for (const subjectId of data.subjectIds) {
+          await tx.teacherSubjectAssignment.upsert({
+            where: {
+              teacherId_subjectId_academicYear: {
+                teacherId: profile.id,
+                subjectId,
+                academicYear: data.academicYear,
+              },
+            },
+            create: {
+              teacherId: profile.id,
+              subjectId,
+              academicYear: data.academicYear,
+              active: true,
+            },
+            update: {
+              active: true,
+            },
+          });
+        }
+      }
+
+      // 7. Return updated teacher details.
+      const updatedTeacher = await tx.teacherProfile.findUnique({
+        where: {
+          userId,
+        },
+        select: {
+          id: true,
+          userId: true,
+          teacherCode: true,
+          name: true,
+          phone: true,
+          branchId: true,
+          branch: {
+            select: {
+              id: true,
+              name: true,
+              codePrefix: true,
+            },
+          },
+          assignments: {
+            where: {
+              active: true,
+            },
+            select: {
+              id: true,
+              subjectId: true,
+              academicYear: true,
+              subject: {
+                select: {
+                  id: true,
+                  name: true,
+                  code: true,
+                  semesterId: true,
+                  semester: {
+                    select: {
+                      id: true,
+                      number: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      return {
+        ...user,
+        teacherProfile: updatedTeacher ?? profile,
+      };
+    },
+    {
+      maxWait: 10000,
+      timeout: 20000,
+    }
+  );
 };
 
 

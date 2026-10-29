@@ -3,6 +3,7 @@ import type { Request, Response } from "express";
 import { Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
+
 import {
   getPendingTeachers,
   approveTeacher,
@@ -12,6 +13,27 @@ import {
   updateTeacher
 } from "./teachers.service.js";
 
+
+function getRouteParam(
+  req: Request,
+  key: string,
+): string | null {
+  const value = req.params[key];
+
+  if (typeof value === "string" && value.trim()) {
+    return value.trim();
+  }
+
+  if (
+    Array.isArray(value) &&
+    typeof value[0] === "string" &&
+    value[0].trim()
+  ) {
+    return value[0].trim();
+  }
+
+  return null;
+}
 
 // GET pending teachers
 export const getPendingTeachersController = async (
@@ -45,7 +67,7 @@ export const approveTeacherController = async (
 ) => {
   console.log("APPROVE CONTROLLER HIT");
 
-  const userId = req.params.userId;
+  const userId = getRouteParam(req, "userId");
 
   if (typeof userId !== "string" || !userId.trim()) {
     return res.status(400).json({
@@ -206,7 +228,10 @@ export const updateTeacherController = async (
   req: Request,
   res: Response
 ) => {
-  const userId = req.params.userId;
+  const userId = getRouteParam(req, "teacherId");
+
+  console.log("Edit Teacher route params:", req.params);
+  console.log("Resolved teacher userId:", userId);
 
   if (typeof userId !== "string" || !userId.trim()) {
     return res.status(400).json({
@@ -216,7 +241,15 @@ export const updateTeacherController = async (
   }
 
   const body = req.body ?? {};
-  const allowedFields = ["name", "branchId", "status", "password"];
+  const allowedFields = [
+    "name",
+    "branchId",
+    "status",
+    "password",
+    "semesterId",
+    "subjectIds",
+    "academicYear",
+  ]; 
   const suppliedFields = Object.keys(body);
 
   if (
@@ -327,7 +360,7 @@ export const getTeacherByIdController = async (
   req: Request,
   res: Response
 ) => {
-  const userId = req.params.userId;
+  const userId = getRouteParam(req, "userId");
 
   if (typeof userId !== "string" || !userId.trim()) {
     return res.status(400).json({
