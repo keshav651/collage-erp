@@ -1,17 +1,21 @@
+
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { approveTeacher } from "../api/adminApi";
+import {
+  approveTeacher,
+  type ApproveTeacherPayload,
+} from "../api/adminApi";
+
+interface ApproveTeacherVariables {
+  userId: string;
+  payload: ApproveTeacherPayload;
+}
 
 export default function useApproveTeacher() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
-      userId,
-      branchId,
-    }: {
-      userId: string;
-      branchId: string;
-    }) => approveTeacher(userId, branchId),
+    mutationFn: ({ userId, payload }: ApproveTeacherVariables) =>
+      approveTeacher(userId, payload),
 
     onSuccess: async () => {
       await Promise.all([

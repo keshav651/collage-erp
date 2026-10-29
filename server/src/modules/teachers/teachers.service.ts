@@ -39,11 +39,16 @@ export const getPendingTeachers = async () => {
 // generate a temporary password, and activate the account.
 export const approveTeacher = async (
   userId: string,
-  branchId: string
+  data: {
+    branchId: string;
+    semesterId: string;
+    subjectIds: string[];
+    academicYear: string;
+  }
 ) => {
   return prisma.$transaction(
     async (tx) => {
-      // 1. Find pending teacher
+      // 1. Find the pending teacher
       const teacher = await tx.user.findFirst({
         where: {
           id: userId,
@@ -61,10 +66,10 @@ export const approveTeacher = async (
         throw new Error("PENDING_TEACHER_NOT_FOUND");
       }
 
-      // 2. Check branch
+      // 2. Validate the selected branch
       const branch = await tx.branch.findUnique({
         where: {
-          id: branchId,
+          id: data.branchId,
         },
         select: {
           id: true,
@@ -76,7 +81,50 @@ export const approveTeacher = async (
         throw new Error("BRANCH_NOT_FOUND");
       }
 
-      // 3. Generate temporary password and its hash
+      // 3. Validate the semester
+      const semester = await tx.semester.findUnique({
+        where: {
+          id: data.semesterId,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!semester) {
+        throw new Error("SEMESTER_NOT_FOUND");
+      }
+
+      // 4. Validate all selected subjects
+      // A subject must belong to the selected semester
+      // and either the selected branch or be a common subject.
+      const subjects = await tx.subject.findMany({
+        where: {
+          id: {
+            in: data.subjectIds,
+          },
+          semesterId: data.semesterId,
+          OR: [
+            {
+              branchId: data.branchId,
+            },
+            {
+              branchId: null,
+            },
+          ],
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (
+        subjects.length !== data.subjectIds.length
+      ) {
+        throw new Error("SUBJECTS_INVALID");
+      }
+
+      // 5. Generate a temporary password
       const temporaryPassword = generateTemporaryPassword(
         teacher.name
       );
@@ -86,7 +134,7 @@ export const approveTeacher = async (
         12
       );
 
-      // 4. Increment teacher counter for this branch
+      // 6. Increment the branch's teacher counter
       const updatedBranch = await tx.branch.update({
         where: {
           id: branch.id,
@@ -102,12 +150,15 @@ export const approveTeacher = async (
         },
       });
 
-      // 5. Generate teacher code, e.g. CSE-TCH-001
+      // 7. Generate the teacher code
       const teacherCode =
         `${updatedBranch.codePrefix}-TCH-` +
-        String(updatedBranch.nextTeacherNumber).padStart(3, "0");
+        String(updatedBranch.nextTeacherNumber).padStart(
+          3,
+          "0"
+        );
 
-      // 6. Create teacher profile
+      // 8. Create the teacher profile
       const profile = await tx.teacherProfile.create({
         data: {
           userId: teacher.id,
@@ -124,7 +175,17 @@ export const approveTeacher = async (
         },
       });
 
-      // 7. Activate account and save password hash
+      // 9. Save subject assignments
+      await tx.teacherSubjectAssignment.createMany({
+        data: subjects.map((subject) => ({
+          teacherId: profile.id,
+          subjectId: subject.id,
+          academicYear: data.academicYear,
+          active: true,
+        })),
+      });
+
+      // 10. Activate the account
       await tx.user.update({
         where: {
           id: teacher.id,
@@ -135,12 +196,14 @@ export const approveTeacher = async (
         },
       });
 
-      // Plain-text password is returned only in this response.
-      // It is never saved as plain text in the database.
+      // 11. Return the teacher details and temporary password
       return {
         ...profile,
         email: teacher.email,
         temporaryPassword,
+        semesterId: data.semesterId,
+        subjectIds: subjects.map((subject) => subject.id),
+        academicYear: data.academicYear,
       };
     },
     {

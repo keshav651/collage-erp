@@ -39,10 +39,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use("/api/auth-test", authTestRoutes);
 app.use("/api/students", studentRoutes);
+app.use("/api/teacher", teacherUnitTestMarksRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/admin/branches", branchRoutes);
 app.use("/api/admin/semesters", semesterRoutes);
-app.use("/api/teacher", teacherUnitTestMarksRoutes);
 
 // Health check
 app.get("/api/health", (_req, res) => {

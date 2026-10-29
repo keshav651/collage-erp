@@ -1,109 +1,90 @@
 
-export interface CreateBranchInput {
-  name: string;
-  codePrefix: string;
-}
+import { z } from "zod";
 
-export const validateCreateBranch = (
+export const approveTeacherSchema = z
+  .object({
+    branchId: z.string().trim().min(1, "Valid branchId is required"),
+
+    semesterId: z
+      .string()
+      .trim()
+      .min(1, "Valid semesterId is required"),
+
+    subjectIds: z
+      .array(z.string().trim().min(1))
+      .min(1, "Select at least one subject")
+      .refine(
+        (ids) => new Set(ids).size === ids.length,
+        "Duplicate subject IDs are not allowed"
+      ),
+
+    academicYear: z
+      .string()
+      .trim()
+      .regex(
+        /^\d{4}-\d{4}$/,
+        "Academic year must be in YYYY-YYYY format, e.g. 2026-2027"
+      )
+      .refine((year) => {
+        const [start, end] = year.split("-").map(Number);
+        return end === start + 1;
+      }, "Academic year must contain consecutive years, e.g. 2026-2027"),
+  })
+  .strict();
+
+export type ApproveTeacherInput = z.infer<
+  typeof approveTeacherSchema
+>;
+
+export const validateApproveTeacher = (
   data: unknown
-): { success: true; data: CreateBranchInput } | { success: false; message: string } => {
-  if (!data || typeof data !== "object" || Array.isArray(data)) {
-    return { success: false, message: "Request body must be an object" };
-  }
+):
+  | { success: true; data: ApproveTeacherInput }
+  | { success: false; message: string } => {
+  const result = approveTeacherSchema.safeParse(data);
 
-  const body = data as Record<string, unknown>;
-
-  if (typeof body.name !== "string" || !body.name.trim()) {
-    return { success: false, message: "Branch name is required" };
-  }
-
-  if (typeof body.codePrefix !== "string" || !body.codePrefix.trim()) {
-    return { success: false, message: "Branch code prefix is required" };
-  }
-
-  const name = body.name.trim();
-  const codePrefix = body.codePrefix.trim().toUpperCase();
-
-  if (name.length > 100) {
-    return { success: false, message: "Branch name cannot exceed 100 characters" };
-  }
-
-  if (!/^[A-Z0-9]{2,10}$/.test(codePrefix)) {
+  if (!result.success) {
     return {
       success: false,
-      message: "Code prefix must contain 2-10 uppercase letters or numbers",
+      message: result.error.issues[0]?.message ?? "Invalid request body",
     };
   }
 
   return {
     success: true,
-    data: { name, codePrefix },
+    data: result.data,
   };
 };
 
 
-export const validateUpdateBranch = (
+export const createBranchSchema = z
+  .object({
+    name: z.string().trim().min(1, "Branch name is required"),
+    codePrefix: z
+      .string()
+      .trim()
+      .min(1, "Branch code prefix is required"),
+  })
+  .strict();
+
+export type CreateBranchInput = z.infer<typeof createBranchSchema>;
+
+export const validateCreateBranch = (
   data: unknown
 ):
-  | {
-      success: true;
-      data: { name?: string; codePrefix?: string };
-    }
+  | { success: true; data: CreateBranchInput }
   | { success: false; message: string } => {
-  if (!data || typeof data !== "object" || Array.isArray(data)) {
+  const result = createBranchSchema.safeParse(data);
+
+  if (!result.success) {
     return {
       success: false,
-      message: "Request body must be an object",
+      message: result.error.issues[0]?.message ?? "Invalid request body",
     };
   }
 
-  const body = data as Record<string, unknown>;
-  const result: { name?: string; codePrefix?: string } = {};
-
-  if (Object.keys(body).length === 0) {
-    return {
-      success: false,
-      message: "At least one field is required",
-    };
-  }
-
-  if (Object.keys(body).some(
-    (key) => !["name", "codePrefix"].includes(key)
-  )) {
-    return {
-      success: false,
-      message: "Only name and codePrefix can be updated",
-    };
-  }
-
-  if ("name" in body) {
-    if (
-      typeof body.name !== "string" ||
-      !body.name.trim() ||
-      body.name.trim().length > 100
-    ) {
-      return {
-        success: false,
-        message: "Branch name must be 1-100 characters",
-      };
-    }
-
-    result.name = body.name.trim();
-  }
-
-  if ("codePrefix" in body) {
-    if (
-      typeof body.codePrefix !== "string" ||
-      !/^[A-Za-z0-9]{2,10}$/.test(body.codePrefix.trim())
-    ) {
-      return {
-        success: false,
-        message: "Code prefix must contain 2-10 letters or numbers",
-      };
-    }
-
-    result.codePrefix = body.codePrefix.trim().toUpperCase();
-  }
-
-  return { success: true, data: result };
+  return {
+    success: true,
+    data: result.data,
+  };
 };

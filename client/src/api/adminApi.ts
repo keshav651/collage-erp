@@ -94,6 +94,13 @@ export async function getAllTeachers(): Promise<TeachersResponse> {
 }
 
 
+export interface ApproveTeacherPayload {
+  branchId: string;
+  semesterId: string;
+  subjectIds: string[];
+  academicYear: string;
+}
+
 export interface ApproveTeacherResponse {
   success: boolean;
   message: string;
@@ -108,55 +115,55 @@ export interface ApproveTeacherResponse {
   };
 }
 
-
 export async function approveTeacher(
   userId: string,
-  branchId: string
+  payload: ApproveTeacherPayload
 ): Promise<ApproveTeacherResponse> {
   const response = await api.patch<ApproveTeacherResponse>(
     `/admin/teachers/${userId}/approve`,
-    { branchId }
-  );
-
-  return response.data;
-}
-
-export interface UpdateTeacherPayload {
-  name?: string;
-  branchId?: string;
-  status?: "ACTIVE" | "INACTIVE";
-  password?: string;
-}
-
-export interface UpdateTeacherResponse {
-  success: boolean;
-  message: string;
-  data: Teacher;
-}
-
-export async function updateTeacher(
-  userId: string,
-  payload: UpdateTeacherPayload
-): Promise<UpdateTeacherResponse> {
-  const response = await api.patch<UpdateTeacherResponse>(
-    `/admin/teachers/${userId}`,
     payload
   );
 
   return response.data;
+
 }
 
-export interface DeleteTeacherResponse {
-  success: boolean;
-  message: string;
-}
+  export interface UpdateTeacherPayload {
+    name?: string;
+    branchId?: string;
+    status?: "ACTIVE" | "INACTIVE";
+    password?: string;
+  }
 
-export async function deactivateTeacher(
-  userId: string
-): Promise<DeleteTeacherResponse> {
-  const response = await api.delete<DeleteTeacherResponse>(
-    `/admin/teachers/${userId}`
-  );
+  export interface UpdateTeacherResponse {
+    success: boolean;
+    message: string;
+    data: Teacher;
+  }
 
-  return response.data;
-}
+  export async function updateTeacher(
+    userId: string,
+    payload: UpdateTeacherPayload
+  ): Promise<UpdateTeacherResponse> {
+    const response = await api.patch<UpdateTeacherResponse>(
+      `/admin/teachers/${userId}`,
+      payload
+    );
+
+    return response.data;
+  }
+
+  export interface DeleteTeacherResponse {
+    success: boolean;
+    message: string;
+  }
+
+  export async function deactivateTeacher(
+    userId: string
+  ): Promise<DeleteTeacherResponse> {
+    const response = await api.delete<DeleteTeacherResponse>(
+      `/admin/teachers/${userId}`
+    );
+
+    return response.data;
+  }

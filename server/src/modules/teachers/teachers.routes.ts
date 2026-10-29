@@ -1,45 +1,32 @@
-
 import { Router } from "express";
 
 import {
-  authenticateToken,
-} from "../../middlewares/auth.middleware.js";
-
-import {
-  allowRoles,
-} from "../../middlewares/role.middleware.js";
-
-import {
-  approveTeacherController,
   getPendingTeachersController,
+  approveTeacherController,
   getAllTeachersController,
   deleteTeacherController,
   updateTeacherController,
-  getTeacherByIdController
+  getTeacherByIdController,
 } from "./teachers.controller.js";
 
 const router = Router();
 
-// All teacher-management routes are Admin-only
-router.use(authenticateToken);
-router.use(allowRoles("ADMIN"));
-
-// Pending teachers
+// Get all pending teachers
 router.get("/pending", getPendingTeachersController);
 
-// Approve teacher and generate temporary password
-router.patch(
-  "/:userId/approve",
-  approveTeacherController
-);
-
-// List active teachers
+// Get all teachers
 router.get("/", getAllTeachersController);
 
-router.delete("/:userId", deleteTeacherController);
+// Approve a teacher and assign subjects
+router.patch("/:userId/approve", approveTeacherController);
 
-router.patch("/:userId", updateTeacherController);
+// Get teacher by ID
+router.get("/:teacherId", getTeacherByIdController);
 
-router.get("/:userId", getTeacherByIdController);
+// Update teacher
+router.patch("/:teacherId", updateTeacherController);
+
+// Deactivate teacher
+router.patch("/:teacherId/deactivate", deleteTeacherController);
 
 export default router;

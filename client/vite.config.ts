@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => {
     server: {
       proxy: {
         "/api": {
-          target: "https://collage-erp-hnx0.onrender.com",
+          target: "http://localhost:5000",
           changeOrigin: true,
           secure: true,
         },

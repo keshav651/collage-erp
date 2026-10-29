@@ -12,7 +12,6 @@ import {
   updateTeacher
 } from "./teachers.service.js";
 
-import { validateApproveTeacher } from "./teachers.validation.js";
 
 // GET pending teachers
 export const getPendingTeachersController = async (
@@ -39,18 +38,12 @@ export const getPendingTeachersController = async (
 };
 
 // PATCH approve teacher
+
 export const approveTeacherController = async (
   req: Request,
   res: Response
 ) => {
-  const validation = validateApproveTeacher(req.body);
-
-  if (!validation.success) {
-    return res.status(400).json({
-      success: false,
-      message: validation.message,
-    });
-  }
+  console.log("APPROVE CONTROLLER HIT");
 
   const userId = req.params.userId;
 
@@ -61,30 +54,60 @@ export const approveTeacherController = async (
     });
   }
 
+
   try {
-    const teacher = await approveTeacher(
+    const { branchId, semesterId, subjectIds, academicYear } =
+      req.body ?? {};
+
+    console.log("APPROVAL PAYLOAD:", {
       userId,
-      validation.data.branchId
-    );
+      branchId,
+      semesterId,
+      subjectIds,
+      academicYear,
+    });
+
+    const result = await approveTeacher(userId, {
+      branchId,
+      semesterId,
+      subjectIds,
+      academicYear,
+    });
 
     return res.status(200).json({
       success: true,
       message: "Teacher approved successfully",
-      data: teacher,
+      data: result,
     });
   } catch (error: unknown) {
-    if (error instanceof Error) {
-      if (error.message === "PENDING_TEACHER_NOT_FOUND") {
-        return res.status(404).json({
-          success: false,
-          message: "Pending teacher not found or already approved",
-        });
-      }
+    console.error("APPROVAL FAILED:", error);
 
-      if (error.message === "BRANCH_NOT_FOUND") {
-        return res.status(404).json({
+    if (error instanceof Error) {
+      const knownErrors: Record<string, { status: number; message: string }> = {
+        PENDING_TEACHER_NOT_FOUND: {
+          status: 404,
+          message: "Pending teacher not found",
+        },
+        BRANCH_NOT_FOUND: {
+          status: 404,
+          message: "Branch not found",
+        },
+        SEMESTER_NOT_FOUND: {
+          status: 404,
+          message: "Semester not found",
+        },
+        SUBJECTS_INVALID: {
+          status: 400,
+          message: "Selected subjects are invalid",
+        },
+      };
+
+      const knownError = knownErrors[error.message];
+
+      if (knownError) {
+        return res.status(knownError.status).json({
           success: false,
-          message: "Selected branch not found",
+          message: knownError.message,
         });
       }
     }
@@ -95,12 +118,9 @@ export const approveTeacherController = async (
     ) {
       return res.status(409).json({
         success: false,
-        message:
-          "Teacher profile or teacher code already exists",
+        message: "A conflicting teacher record already exists",
       });
     }
-
-    console.error("Approve teacher error:", error);
 
     return res.status(500).json({
       success: false,
@@ -108,6 +128,7 @@ export const approveTeacherController = async (
     });
   }
 };
+
 
 // GET active teachers
 export const getAllTeachersController = async (
