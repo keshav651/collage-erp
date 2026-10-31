@@ -305,3 +305,114 @@ export const getUnitTestCycles = async (
     });
   }
 };
+
+
+
+
+export const deleteUnitTestCycle = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
+  try {
+    const userId = req.user?.userId;
+    const id = req.params.id;
+
+    // Validate authentication
+    if (!userId) {
+      return res.status(401).json({
+        message: "Authentication required",
+      });
+    }
+
+    // Validate cycle ID
+    if (typeof id !== "string" || !id.trim()) {
+      return res.status(400).json({
+        message: "Valid Unit Test Cycle ID is required",
+      });
+    }
+
+    // Check whether the cycle exists and fetch its tests and marks
+    const cycle = await prisma.unitTestCycle.findUnique({
+      where: { id },
+      include: {
+        tests: {
+          include: {
+            marks: {
+              select: {
+                id: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!cycle) {
+      return res.status(404).json({
+        message: "Unit Test Cycle not found",
+      });
+    }
+
+    const totalTests = cycle.tests.length;
+
+    const totalMarks = cycle.tests.reduce(
+      (total, test) => total + test.marks.length,
+      0,
+    );
+
+    // Require explicit confirmation if marks exist
+    const confirmed =
+      req.query.confirmMarksDeletion === "true";
+
+    if (totalMarks > 0 && !confirmed) {
+      return res.status(409).json({
+        message:
+          "This cycle contains student marks. Confirm deletion explicitly to delete the cycle, its tests, and associated marks.",
+        requiresConfirmation: true,
+        totalTests,
+        totalMarks,
+      });
+    }
+
+    // Delete cycle and create audit log in one transaction
+    await prisma.$transaction(async (tx) => {
+      await tx.unitTestCycle.delete({
+        where: { id },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userId,
+          action: "UNIT_TEST_CYCLE_DELETED",
+          entity: "UnitTestCycle",
+          entityId: id,
+          details: JSON.stringify({
+            cycleName: cycle.name,
+            academicYear: cycle.academicYear,
+            semesterId: cycle.semesterId,
+            branchId: cycle.branchId,
+            totalTests,
+            totalMarks,
+            marksDeletionConfirmed: confirmed,
+          }),
+        },
+      });
+    });
+
+    return res.status(200).json({
+      message: "Unit Test Cycle deleted successfully",
+      data: {
+        id,
+        name: cycle.name,
+        totalTests,
+        totalMarks,
+      },
+    });
+  } catch (error) {
+    console.error("Delete Unit Test Cycle Error:", error);
+
+    return res.status(500).json({
+      message: "Failed to delete Unit Test Cycle",
+    });
+  }
+};

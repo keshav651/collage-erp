@@ -233,7 +233,7 @@ export const updateTeacherController = async (
   console.log("Edit Teacher route params:", req.params);
   console.log("Resolved teacher userId:", userId);
 
-  if (typeof userId !== "string" || !userId.trim()) {
+  if (!userId) {
     return res.status(400).json({
       success: false,
       message: "Valid teacher user ID is required",
@@ -241,6 +241,7 @@ export const updateTeacherController = async (
   }
 
   const body = req.body ?? {};
+
   const allowedFields = [
     "name",
     "branchId",
@@ -249,7 +250,8 @@ export const updateTeacherController = async (
     "semesterId",
     "subjectIds",
     "academicYear",
-  ]; 
+  ];
+
   const suppliedFields = Object.keys(body);
 
   if (
@@ -258,7 +260,7 @@ export const updateTeacherController = async (
   ) {
     return res.status(400).json({
       success: false,
-      message: "Provide name, branchId, status, or password to update",
+      message: "Invalid fields provided for teacher update",
     });
   }
 
@@ -267,8 +269,12 @@ export const updateTeacherController = async (
     branchId?: string;
     status?: "ACTIVE" | "INACTIVE";
     passwordHash?: string;
+    semesterId?: string;
+    subjectIds?: string[];
+    academicYear?: string;
   } = {};
 
+  // Validate name
   if ("name" in body) {
     if (typeof body.name !== "string" || !body.name.trim()) {
       return res.status(400).json({
@@ -280,6 +286,7 @@ export const updateTeacherController = async (
     data.name = body.name.trim();
   }
 
+  // Validate branch
   if ("branchId" in body) {
     if (typeof body.branchId !== "string" || !body.branchId.trim()) {
       return res.status(400).json({
@@ -291,6 +298,7 @@ export const updateTeacherController = async (
     data.branchId = body.branchId.trim();
   }
 
+  // Validate status
   if ("status" in body) {
     if (!["ACTIVE", "INACTIVE"].includes(body.status)) {
       return res.status(400).json({
@@ -302,6 +310,7 @@ export const updateTeacherController = async (
     data.status = body.status;
   }
 
+  // Validate password
   if ("password" in body) {
     if (
       typeof body.password !== "string" ||
@@ -315,12 +324,59 @@ export const updateTeacherController = async (
     }
   }
 
+  // Validate subject assignment fields
+  const assignmentFields = [
+    "semesterId",
+    "subjectIds",
+    "academicYear",
+  ];
+
+  const hasAssignmentFields = assignmentFields.some(
+    (field) => field in body
+  );
+
+  if (hasAssignmentFields) {
+    if (
+      typeof body.semesterId !== "string" ||
+      !body.semesterId.trim() ||
+      !Array.isArray(body.subjectIds) ||
+      !body.subjectIds.every(
+        (id: unknown) =>
+          typeof id === "string" && id.trim().length > 0
+      ) ||
+      typeof body.academicYear !== "string" ||
+      !body.academicYear.trim()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "semesterId, subjectIds, and academicYear must be provided together",
+      });
+    }
+
+    data.semesterId = body.semesterId.trim();
+    data.subjectIds = body.subjectIds;
+    data.academicYear = body.academicYear.trim();
+  }
+
   try {
     // Hash the password exactly once.
     if ("password" in body) {
       data.passwordHash = await bcrypt.hash(body.password, 12);
     }
 
+    console.log("UPDATE TEACHER DATA:", {
+      userId,
+      name: data.name,
+      branchId: data.branchId,
+      status: data.status,
+      semesterId: data.semesterId,
+      academicYear: data.academicYear,
+      subjectIds: data.subjectIds,
+      assignmentUpdateRequested: hasAssignmentFields,
+    });
+
+    // Assignment fields are now passed to the service too.
     const teacher = await updateTeacher(userId, data);
 
     return res.status(200).json({
@@ -341,6 +397,20 @@ export const updateTeacherController = async (
         return res.status(404).json({
           success: false,
           message: "Branch not found",
+        });
+      }
+
+      if (error.message === "SEMESTER_NOT_FOUND") {
+        return res.status(404).json({
+          success: false,
+          message: "Semester not found",
+        });
+      }
+
+      if (error.message === "SUBJECTS_INVALID") {
+        return res.status(400).json({
+          success: false,
+          message: "Selected subjects are invalid",
         });
       }
     }
