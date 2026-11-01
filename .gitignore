@@ -118,3 +118,10 @@ temp/
 
 server/uploads/*
 !server/uploads/.gitkeep
+
+
+# ========================================== 
+# Load Tests
+# ==========================================
+
+/load-tests/*.js
