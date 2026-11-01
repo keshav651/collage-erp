@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries } from "@tanstack/react-query";
 
 import AdminHeader from "../../../components/admin/AdminHeader";
 import AdminActionFeedback from "../components/AdminActionFeedback";
@@ -39,11 +39,54 @@ interface ApprovedTeacherCredentials {
 function getCurrentAcademicYear() {
   const now = new Date();
   const year = now.getFullYear();
-
-  // Academic year begins in July for this application.
   const startYear = now.getMonth() >= 6 ? year : year - 1;
 
   return `${startYear}-${startYear + 1}`;
+}
+
+function getAssignmentsForYear(
+  teacher: Teacher,
+  academicYear: string,
+): {
+  semesterIds: string[];
+  subjectsBySemester: Record<string, string[]>;
+} {
+  const semesterIds: string[] = [];
+  const subjectsBySemester: Record<string, string[]> = {};
+
+  for (const assignment of teacher.assignments ?? []) {
+    if (
+      assignment.active === false ||
+      assignment.academicYear !== academicYear
+    ) {
+      continue;
+    }
+
+    const semesterId = assignment.subject.semesterId;
+
+    if (!semesterId || !assignment.subjectId) {
+      continue;
+    }
+
+    if (!semesterIds.includes(semesterId)) {
+      semesterIds.push(semesterId);
+    }
+
+    if (!subjectsBySemester[semesterId]) {
+      subjectsBySemester[semesterId] = [];
+    }
+
+    if (
+      !subjectsBySemester[semesterId].includes(assignment.subjectId)
+    ) {
+      subjectsBySemester[semesterId].push(assignment.subjectId);
+    }
+  }
+
+  return {
+    semesterIds,
+    subjectsBySemester,
+  };
 }
 
 export default function TeacherManagementPage() {
@@ -86,44 +129,42 @@ export default function TeacherManagementPage() {
   const [selectedBranchId, setSelectedBranchId] = useState("");
   const [approvalError, setApprovalError] = useState("");
 
-  // Edit teacher modal state
+  // Edit teacher state
   const [editingTeacher, setEditingTeacher] =
     useState<Teacher | null>(null);
 
   const [editName, setEditName] = useState("");
   const [editBranchId, setEditBranchId] = useState("");
   const [editPassword, setEditPassword] = useState("");
+
   const [editStatus, setEditStatus] =
     useState<"ACTIVE" | "INACTIVE">("ACTIVE");
 
-  const [editSemesterId, setEditSemesterId] = useState("");
   const [editAcademicYear, setEditAcademicYear] =
     useState(getCurrentAcademicYear);
-  const [editSubjectIds, setEditSubjectIds] = useState<string[]>([]);
 
-  const [assignmentInitialized, setAssignmentInitialized] =
-    useState(false);
+  const [selectedSemesterIds, setSelectedSemesterIds] =
+    useState<string[]>([]);
 
-  // Fetch subjects for the selected branch and semester
-  const {
-    data: subjectsData,
-    isLoading: subjectsLoading,
-    isError: subjectsError,
-  } = useQuery({
-    queryKey: [
-      "admin",
-      "subjects",
-      editBranchId,
-      editSemesterId,
-    ],
-    queryFn: () =>
-      getSubjects({
-        branchId: editBranchId,
-        semesterId: editSemesterId,
-      }),
-    enabled: Boolean(
-      editingTeacher && editBranchId && editSemesterId,
-    ),
+  const [selectedSubjectsBySemester, setSelectedSubjectsBySemester] =
+    useState<Record<string, string[]>>({});
+
+  // Fetch subjects separately for each selected semester.
+  const semesterSubjectQueries = useQueries({
+    queries: selectedSemesterIds.map((semesterId) => ({
+      queryKey: [
+        "admin",
+        "subjects",
+        editBranchId,
+        semesterId,
+      ],
+      queryFn: () =>
+        getSubjects({
+          branchId: editBranchId,
+          semesterId,
+        }),
+      enabled: Boolean(editingTeacher && editBranchId && semesterId),
+    })),
   });
 
   // Feedback and approved credentials
@@ -138,43 +179,60 @@ export default function TeacherManagementPage() {
   const branches = branchesData?.data ?? [];
   const activeTeachers = teachersData?.data ?? [];
   const semesters = semestersData?.data ?? [];
-  const subjects: Subject[] = subjectsData?.data ?? [];
 
-  // Initialize existing assignments when the subjects have loaded.
-  useEffect(() => {
-    if (!editingTeacher || !editSemesterId || !subjectsData) {
-      return;
+  // Map query results back to semester IDs.
+  const subjectsBySemester: Record<
+    string,
+    {
+      subjects: Subject[];
+      isLoading: boolean;
+      isError: boolean;
     }
+  > = {};
 
-    if (assignmentInitialized) {
-      return;
-    }
+  selectedSemesterIds.forEach((semesterId, index) => {
+    const query = semesterSubjectQueries[index];
 
-    const existingAssignments =
-      editingTeacher.assignments?.filter(
-        (assignment) =>
-          assignment.active !== false &&
-          assignment.academicYear === editAcademicYear &&
-          assignment.subject.semesterId === editSemesterId,
-      ) ?? [];
+    subjectsBySemester[semesterId] = {
+      subjects: (query?.data?.data ?? []) as Subject[],
+      isLoading: Boolean(query?.isLoading),
+      isError: Boolean(query?.isError),
+    };
+  });
 
-    setEditSubjectIds(
-      existingAssignments
-        .filter((assignment) =>
-          subjects.some((subject) => subject.id === assignment.subjectId),
-        )
-        .map((assignment) => assignment.subjectId),
+  // Keep only subject IDs that belong to their selected semester's
+  // successfully loaded subject list.
+  const loadedAssignmentsAreValid = selectedSemesterIds.every(
+    (semesterId) => {
+      const query = subjectsBySemester[semesterId];
+
+      if (!query || query.isLoading || query.isError) {
+        return false;
+      }
+
+      const validSubjectIds = new Set(
+        query.subjects.map((subject) => subject.id),
+      );
+
+      return (
+        selectedSubjectsBySemester[semesterId] ?? []
+      ).every((id) => validSubjectIds.has(id));
+    },
+  );
+
+  // Initialize assignments from the selected academic year.
+  const initializeAssignmentsForYear = (
+    teacher: Teacher,
+    academicYear: string,
+  ) => {
+    const assignments = getAssignmentsForYear(
+      teacher,
+      academicYear,
     );
 
-    setAssignmentInitialized(true);
-  }, [
-    editingTeacher,
-    editSemesterId,
-    editAcademicYear,
-    subjectsData,
-    subjects,
-    assignmentInitialized,
-  ]);
+    setSelectedSemesterIds(assignments.semesterIds);
+    setSelectedSubjectsBySemester(assignments.subjectsBySemester);
+  };
 
   // Close edit modal
   const closeEditTeacherModal = () => {
@@ -183,10 +241,9 @@ export default function TeacherManagementPage() {
     setEditBranchId("");
     setEditPassword("");
     setEditStatus("ACTIVE");
-    setEditSemesterId("");
     setEditAcademicYear(getCurrentAcademicYear());
-    setEditSubjectIds([]);
-    setAssignmentInitialized(false);
+    setSelectedSemesterIds([]);
+    setSelectedSubjectsBySemester({});
     setTeacherActionError("");
   };
 
@@ -210,6 +267,9 @@ export default function TeacherManagementPage() {
       (assignment) => assignment.active !== false,
     );
 
+    const academicYear =
+      firstAssignment?.academicYear ?? getCurrentAcademicYear();
+
     setEditingTeacher(teacher);
     setEditName(teacher.name ?? "");
     setEditBranchId(teacher.branchId ?? "");
@@ -217,37 +277,66 @@ export default function TeacherManagementPage() {
       teacher.user.status === "INACTIVE" ? "INACTIVE" : "ACTIVE",
     );
     setEditPassword("");
-    setEditAcademicYear(
-      firstAssignment?.academicYear ?? getCurrentAcademicYear(),
-    );
-    setEditSemesterId(
-      firstAssignment?.subject.semesterId ?? "",
-    );
-    setEditSubjectIds([]);
-    setAssignmentInitialized(false);
+    setEditAcademicYear(academicYear);
+
+    initializeAssignmentsForYear(teacher, academicYear);
+
     setTeacherActionError("");
     setTeacherActionSuccess("");
   };
 
-  // When semester or academic year changes, initialize its current assignments.
-  const handleSemesterChange = (semesterId: string) => {
-    setEditSemesterId(semesterId);
-    setEditSubjectIds([]);
-    setAssignmentInitialized(false);
+  // Change branch.
+  // Keep selected semesters, but clear the subject selection because
+  // subjects may be different in the new branch.
+  const handleBranchChange = (branchId: string) => {
+    setEditBranchId(branchId);
+    setSelectedSubjectsBySemester({});
+    setTeacherActionError("");
   };
 
+  // Change academic year and reload assignments for that year.
   const handleAcademicYearChange = (academicYear: string) => {
     setEditAcademicYear(academicYear);
-    setEditSubjectIds([]);
-    setAssignmentInitialized(false);
+
+    if (editingTeacher) {
+      initializeAssignmentsForYear(editingTeacher, academicYear);
+    }
+
+    setTeacherActionError("");
   };
 
-  const toggleSubject = (subjectId: string) => {
-    setEditSubjectIds((current) =>
-      current.includes(subjectId)
-        ? current.filter((id) => id !== subjectId)
-        : [...current, subjectId],
-    );
+  // Add or remove a semester.
+  const handleToggleSemester = (semesterId: string) => {
+    setSelectedSemesterIds((current) => {
+      if (current.includes(semesterId)) {
+        return current.filter((id) => id !== semesterId);
+      }
+
+      return [...current, semesterId];
+    });
+
+    setTeacherActionError("");
+  };
+
+  // Add or remove a subject within a particular semester.
+  const handleToggleSubject = (
+    semesterId: string,
+    subjectId: string,
+  ) => {
+    setSelectedSubjectsBySemester((current) => {
+      const currentSubjectIds = current[semesterId] ?? [];
+
+      const nextSubjectIds = currentSubjectIds.includes(subjectId)
+        ? currentSubjectIds.filter((id) => id !== subjectId)
+        : [...currentSubjectIds, subjectId];
+
+      return {
+        ...current,
+        [semesterId]: nextSubjectIds,
+      };
+    });
+
+    setTeacherActionError("");
   };
 
   // Approve teacher
@@ -318,11 +407,12 @@ export default function TeacherManagementPage() {
     }
   };
 
-  // Update teacher and one semester's subject assignments
+  // Update teacher information and multiple semester assignments.
   const handleUpdateTeacher = async () => {
     if (!editingTeacher) return;
 
     const name = editName.trim();
+    const academicYear = editAcademicYear.trim();
 
     if (!name) {
       setTeacherActionError("Teacher name is required.");
@@ -334,17 +424,37 @@ export default function TeacherManagementPage() {
       return;
     }
 
-    if (editPassword.length > 0 &&
-        (editPassword.length < 10 || editPassword.length > 72)) {
+    if (
+      editPassword.length > 0 &&
+      (editPassword.length < 10 || editPassword.length > 72)
+    ) {
       setTeacherActionError(
         "Password must be between 10 and 72 characters.",
       );
       return;
     }
 
-    if (editSemesterId && !editAcademicYear.trim()) {
-      setTeacherActionError("Please enter an academic year.");
-      return;
+    if (selectedSemesterIds.length > 0) {
+      if (!/^\d{4}-\d{4}$/.test(academicYear)) {
+        setTeacherActionError(
+          "Enter the academic year in YYYY-YYYY format.",
+        );
+        return;
+      }
+
+      if (semestersLoading || semestersError) {
+        setTeacherActionError(
+          "Please wait until semesters are loaded successfully.",
+        );
+        return;
+      }
+
+      if (!loadedAssignmentsAreValid) {
+        setTeacherActionError(
+          "Please wait for all selected semester subjects to load. Ensure every selected subject belongs to its semester.",
+        );
+        return;
+      }
     }
 
     setTeacherActionError("");
@@ -360,12 +470,17 @@ export default function TeacherManagementPage() {
       payload.password = editPassword;
     }
 
-    // Only include assignment fields when a semester is selected.
-    // The backend synchronizes assignments for this semester/year.
-    if (editSemesterId) {
-      payload.semesterId = editSemesterId;
-      payload.academicYear = editAcademicYear.trim();
-      payload.subjectIds = editSubjectIds;
+    // Send assignments only for semesters explicitly selected in the UI.
+    // Other semesters are not touched by the backend.
+    if (selectedSemesterIds.length > 0) {
+      payload.academicYear = academicYear;
+
+      payload.semesterAssignments = selectedSemesterIds.map(
+        (semesterId) => ({
+          semesterId,
+          subjectIds: selectedSubjectsBySemester[semesterId] ?? [],
+        }),
+      );
     }
 
     try {
@@ -414,6 +529,7 @@ export default function TeacherManagementPage() {
         <h1 className="text-2xl font-bold text-gray-800">
           Teacher Management
         </h1>
+
         <p className="mt-1 text-sm text-gray-600">
           Review registrations and manage existing teachers.
         </p>
@@ -468,12 +584,7 @@ export default function TeacherManagementPage() {
           name={editName}
           setName={setEditName}
           branchId={editBranchId}
-          setBranchId={(branchId) => {
-            setEditBranchId(branchId);
-            setEditSemesterId("");
-            setEditSubjectIds([]);
-            setAssignmentInitialized(false);
-          }}
+          setBranchId={handleBranchChange}
           status={editStatus}
           setStatus={setEditStatus}
           password={editPassword}
@@ -486,15 +597,13 @@ export default function TeacherManagementPage() {
           semesters={semesters}
           semestersLoading={semestersLoading}
           semestersError={semestersError}
-          semesterId={editSemesterId}
-          setSemesterId={handleSemesterChange}
+          selectedSemesterIds={selectedSemesterIds}
+          onToggleSemester={handleToggleSemester}
           academicYear={editAcademicYear}
           setAcademicYear={handleAcademicYearChange}
-          subjects={subjects}
-          subjectsLoading={subjectsLoading}
-          subjectsError={subjectsError}
-          selectedSubjectIds={editSubjectIds}
-          onToggleSubject={toggleSubject}
+          subjectsBySemester={subjectsBySemester}
+          selectedSubjectsBySemester={selectedSubjectsBySemester}
+          onToggleSubject={handleToggleSubject}
           onClose={closeEditTeacherModal}
           onSubmit={handleUpdateTeacher}
         />
@@ -537,6 +646,7 @@ export default function TeacherManagementPage() {
                 <p className="text-xs font-medium text-gray-500">
                   Teacher Name
                 </p>
+
                 <p className="break-words font-semibold text-gray-800">
                   {approvedTeacherCredentials.name}
                 </p>
@@ -546,6 +656,7 @@ export default function TeacherManagementPage() {
                 <p className="text-xs font-medium text-gray-500">
                   Email
                 </p>
+
                 <p className="break-all font-semibold text-gray-800">
                   {approvedTeacherCredentials.email}
                 </p>
@@ -556,6 +667,7 @@ export default function TeacherManagementPage() {
                   <p className="text-xs font-medium text-gray-500">
                     Teacher Code
                   </p>
+
                   <p className="font-semibold text-gray-800">
                     {approvedTeacherCredentials.teacherCode}
                   </p>
@@ -567,6 +679,7 @@ export default function TeacherManagementPage() {
                   <p className="text-xs font-medium text-gray-500">
                     Temporary Password
                   </p>
+
                   <p className="break-all font-semibold text-gray-800">
                     {approvedTeacherCredentials.temporaryPassword}
                   </p>

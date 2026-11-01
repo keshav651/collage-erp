@@ -338,29 +338,45 @@ export const deactivateTeacher = async (userId: string) => {
 
 
 
+type SemesterAssignmentInput = {
+  semesterId: string;
+  subjectIds: string[];
+};
+
 type UpdateTeacherInput = {
   name?: string;
   branchId?: string;
   status?: "ACTIVE" | "INACTIVE";
   passwordHash?: string;
 
-  // Subject assignment fields
+  // Existing single-semester support
   semesterId?: string;
   subjectIds?: string[];
   academicYear?: string;
+
+  // New multiple-semester support
+  semesterAssignments?: SemesterAssignmentInput[];
 };
 
 export const updateTeacher = async (
   userId: string,
   data: UpdateTeacherInput
 ) => {
-  // Subject assignment fields must be provided together.
-  const assignmentFieldsProvided =
+  const hasLegacyAssignmentFields =
     data.semesterId !== undefined ||
-    data.subjectIds !== undefined ||
-    data.academicYear !== undefined;
+    data.subjectIds !== undefined ;
+    
+  const hasMultipleSemesterAssignments =
+    data.semesterAssignments !== undefined;
 
-  if (assignmentFieldsProvided) {
+  if (
+    hasLegacyAssignmentFields &&
+    hasMultipleSemesterAssignments
+  ) {
+    throw new Error("INVALID_ASSIGNMENT_DATA");
+  }
+
+  if (hasLegacyAssignmentFields) {
     if (
       typeof data.semesterId !== "string" ||
       !data.semesterId.trim() ||
@@ -374,15 +390,57 @@ export const updateTeacher = async (
       throw new Error("INVALID_ASSIGNMENT_DATA");
     }
 
-    // Duplicate IDs can otherwise cause misleading validation results.
-    if (new Set(data.subjectIds).size !== data.subjectIds.length) {
+    if (
+      new Set(data.subjectIds).size !== data.subjectIds.length
+    ) {
       throw new Error("DUPLICATE_SUBJECT_IDS");
+    }
+  }
+
+  if (hasMultipleSemesterAssignments) {
+    if (
+      !Array.isArray(data.semesterAssignments) ||
+      typeof data.academicYear !== "string" ||
+      !data.academicYear.trim()
+    ) {
+      throw new Error("INVALID_ASSIGNMENT_DATA");
+    }
+
+    const semesterIds = data.semesterAssignments.map(
+      (assignment) => assignment.semesterId
+    );
+
+    if (
+      semesterIds.some(
+        (id) => typeof id !== "string" || !id.trim()
+      ) ||
+      new Set(semesterIds).size !== semesterIds.length
+    ) {
+      throw new Error("INVALID_ASSIGNMENT_DATA");
+    }
+
+    for (const assignment of data.semesterAssignments) {
+      if (
+        !Array.isArray(assignment.subjectIds) ||
+        !assignment.subjectIds.every(
+          (id) => typeof id === "string" && id.trim().length > 0
+        )
+      ) {
+        throw new Error("INVALID_ASSIGNMENT_DATA");
+      }
+
+      if (
+        new Set(assignment.subjectIds).size !==
+        assignment.subjectIds.length
+      ) {
+        throw new Error("DUPLICATE_SUBJECT_IDS");
+      }
     }
   }
 
   return prisma.$transaction(
     async (tx) => {
-      // 1. Find the teacher.
+      // 1. Find teacher
       const existingTeacher = await tx.user.findFirst({
         where: {
           id: userId,
@@ -409,7 +467,7 @@ export const updateTeacher = async (
       const teacherProfile = existingTeacher.teacherProfile;
       const finalBranchId = data.branchId ?? teacherProfile.branchId;
 
-      // 2. Validate the branch.
+      // 2. Validate branch
       const branch = await tx.branch.findUnique({
         where: {
           id: finalBranchId,
@@ -423,7 +481,7 @@ export const updateTeacher = async (
         throw new Error("BRANCH_NOT_FOUND");
       }
 
-      // 3. Update account and teacher profile.
+      // 3. Update user account
       const user = await tx.user.update({
         where: {
           id: userId,
@@ -448,6 +506,7 @@ export const updateTeacher = async (
         },
       });
 
+      // 4. Update teacher profile
       const profile = await tx.teacherProfile.update({
         where: {
           userId,
@@ -470,17 +529,31 @@ export const updateTeacher = async (
         },
       });
 
-      // 4. Synchronize assignments only when all assignment fields
-      // have been provided.
-      if (
-        assignmentFieldsProvided &&
-        data.semesterId !== undefined &&
-        data.subjectIds !== undefined &&
-        data.academicYear !== undefined
-      ) {
+      // 5. Normalize legacy assignment format to the same
+      // internal format used by multiple-semester assignments.
+      const assignmentsToUpdate: SemesterAssignmentInput[] =
+        hasMultipleSemesterAssignments
+          ? data.semesterAssignments!
+          : hasLegacyAssignmentFields
+            ? [
+                {
+                  semesterId: data.semesterId!,
+                  subjectIds: data.subjectIds!,
+                },
+              ]
+            : [];
+
+      // 6. Validate and synchronize each explicitly supplied semester.
+      // Semesters absent from the request remain unchanged.
+      for (const assignment of assignmentsToUpdate) {
+        const semesterId = assignment.semesterId.trim();
+        const subjectIds = assignment.subjectIds.map(
+          (id) => id.trim()
+        );
+
         const semester = await tx.semester.findUnique({
           where: {
-            id: data.semesterId,
+            id: semesterId,
           },
           select: {
             id: true,
@@ -492,92 +565,78 @@ export const updateTeacher = async (
           throw new Error("SEMESTER_NOT_FOUND");
         }
 
-        // Match the existing subject rules:
-        // Semesters 1-2 may have common subjects.
-        // Semesters 3+ require branch-specific subjects.
-        if (
-          semester.number > 2 &&
-          data.subjectIds.length > 0
-        ) {
-          const selectedSubjects = await tx.subject.findMany({
-            where: {
-              id: {
-                in: data.subjectIds,
-              },
-              semesterId: semester.id,
-              branchId: finalBranchId,
+        // Validate subjects against the selected branch and semester.
+        if (subjectIds.length > 0) {
+          const subjectWhere = {
+            id: {
+              in: subjectIds,
             },
-            select: {
-              id: true,
-            },
-          });
-
-          if (selectedSubjects.length !== data.subjectIds.length) {
-            throw new Error("SUBJECTS_INVALID");
-          }
-        } else if (data.subjectIds.length > 0) {
-          const selectedSubjects = await tx.subject.findMany({
-            where: {
-              id: {
-                in: data.subjectIds,
-              },
-              semesterId: semester.id,
-              OR: [
-                {
+            semesterId: semester.id,
+            ...(semester.number > 2
+              ? {
                   branchId: finalBranchId,
-                },
-                {
-                  branchId: null,
-                },
-              ],
-            },
+                }
+              : {
+                  OR: [
+                    {
+                      branchId: finalBranchId,
+                    },
+                    {
+                      branchId: null,
+                    },
+                  ],
+                }),
+          };
+
+          const validSubjects = await tx.subject.findMany({
+            where: subjectWhere,
             select: {
               id: true,
             },
           });
 
-          if (selectedSubjects.length !== data.subjectIds.length) {
+          if (validSubjects.length !== subjectIds.length) {
             throw new Error("SUBJECTS_INVALID");
           }
         }
 
-        // 5. Deactivate removed subjects only for this teacher,
-        // semester and academic year.
+        // Deactivate removed assignments only for this teacher,
+        // this semester and this academic year.
         await tx.teacherSubjectAssignment.updateMany({
           where: {
             teacherId: profile.id,
-            academicYear: data.academicYear,
+            academicYear: data.academicYear!,
             subject: {
               semesterId: semester.id,
             },
-            ...(data.subjectIds.length > 0
+            active: true,
+            ...(subjectIds.length > 0
               ? {
                   subjectId: {
-                    notIn: data.subjectIds,
+                    notIn: subjectIds,
                   },
                 }
               : {}),
-            active: true,
           },
           data: {
             active: false,
           },
         });
 
-        // 6. Create new assignments or reactivate existing ones.
-        for (const subjectId of data.subjectIds) {
+        // Create missing assignments or reactivate existing ones.
+        for (const subjectId of subjectIds) {
           await tx.teacherSubjectAssignment.upsert({
             where: {
               teacherId_subjectId_academicYear: {
                 teacherId: profile.id,
                 subjectId,
-                academicYear: data.academicYear,
+                academicYear: data.academicYear!,
               },
             },
             create: {
               teacherId: profile.id,
               subjectId,
-              academicYear: data.academicYear,
+              academicYear: data.academicYear!,
               active: true,
             },
             update: {
@@ -587,7 +646,7 @@ export const updateTeacher = async (
         }
       }
 
-      // 7. Return updated teacher details.
+      // 7. Return updated teacher with active assignments.
       const updatedTeacher = await tx.teacherProfile.findUnique({
         where: {
           userId,
@@ -599,6 +658,7 @@ export const updateTeacher = async (
           name: true,
           phone: true,
           branchId: true,
+
           branch: {
             select: {
               id: true,
@@ -606,6 +666,7 @@ export const updateTeacher = async (
               codePrefix: true,
             },
           },
+
           assignments: {
             where: {
               active: true,
@@ -614,12 +675,14 @@ export const updateTeacher = async (
               id: true,
               subjectId: true,
               academicYear: true,
+
               subject: {
                 select: {
                   id: true,
                   name: true,
                   code: true,
                   semesterId: true,
+
                   semester: {
                     select: {
                       id: true,
@@ -628,6 +691,9 @@ export const updateTeacher = async (
                   },
                 },
               },
+            },
+            orderBy: {
+              assignedAt: "desc",
             },
           },
         },

@@ -3,20 +3,18 @@ import type { Request, Response } from "express";
 import { Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
-
 import {
   getPendingTeachers,
   approveTeacher,
   getAllTeachers,
   deactivateTeacher,
   getTeacherById,
-  updateTeacher
+  updateTeacher,
 } from "./teachers.service.js";
-
 
 function getRouteParam(
   req: Request,
-  key: string,
+  key: string
 ): string | null {
   const value = req.params[key];
 
@@ -60,34 +58,26 @@ export const getPendingTeachersController = async (
 };
 
 // PATCH approve teacher
-
 export const approveTeacherController = async (
   req: Request,
   res: Response
 ) => {
-  console.log("APPROVE CONTROLLER HIT");
-
   const userId = getRouteParam(req, "userId");
 
-  if (typeof userId !== "string" || !userId.trim()) {
+  if (!userId) {
     return res.status(400).json({
       success: false,
       message: "Valid teacher user ID is required",
     });
   }
 
-
   try {
-    const { branchId, semesterId, subjectIds, academicYear } =
-      req.body ?? {};
-
-    console.log("APPROVAL PAYLOAD:", {
-      userId,
+    const {
       branchId,
       semesterId,
       subjectIds,
       academicYear,
-    });
+    } = req.body ?? {};
 
     const result = await approveTeacher(userId, {
       branchId,
@@ -105,7 +95,10 @@ export const approveTeacherController = async (
     console.error("APPROVAL FAILED:", error);
 
     if (error instanceof Error) {
-      const knownErrors: Record<string, { status: number; message: string }> = {
+      const knownErrors: Record<
+        string,
+        { status: number; message: string }
+      > = {
         PENDING_TEACHER_NOT_FOUND: {
           status: 404,
           message: "Pending teacher not found",
@@ -151,8 +144,7 @@ export const approveTeacherController = async (
   }
 };
 
-
-// GET active teachers
+// GET teachers
 export const getAllTeachersController = async (
   _req: Request,
   res: Response
@@ -176,15 +168,14 @@ export const getAllTeachersController = async (
   }
 };
 
-
-
+// DELETE / deactivate teacher
 export const deleteTeacherController = async (
   req: Request,
   res: Response
 ) => {
-  const userId = req.params.userId;
+  const userId = getRouteParam(req, "userId");
 
-  if (typeof userId !== "string" || !userId.trim()) {
+  if (!userId) {
     return res.status(400).json({
       success: false,
       message: "Valid teacher user ID is required",
@@ -215,23 +206,18 @@ export const deleteTeacherController = async (
     return res.status(500).json({
       success: false,
       message: "Failed to deactivate teacher",
-      error: error instanceof Error ? error.message : String(error),
+      error:
+        error instanceof Error ? error.message : String(error),
     });
   }
 };
 
-
-
-
-
+// PATCH update teacher
 export const updateTeacherController = async (
   req: Request,
   res: Response
 ) => {
   const userId = getRouteParam(req, "teacherId");
-
-  console.log("Edit Teacher route params:", req.params);
-  console.log("Resolved teacher userId:", userId);
 
   if (!userId) {
     return res.status(400).json({
@@ -250,19 +236,27 @@ export const updateTeacherController = async (
     "semesterId",
     "subjectIds",
     "academicYear",
+    "semesterAssignments",
   ];
 
   const suppliedFields = Object.keys(body);
 
   if (
     suppliedFields.length === 0 ||
-    suppliedFields.some((field) => !allowedFields.includes(field))
+    suppliedFields.some(
+      (field) => !allowedFields.includes(field)
+    )
   ) {
     return res.status(400).json({
       success: false,
       message: "Invalid fields provided for teacher update",
     });
   }
+
+  type SemesterAssignmentInput = {
+    semesterId: string;
+    subjectIds: string[];
+  };
 
   const data: {
     name?: string;
@@ -272,11 +266,15 @@ export const updateTeacherController = async (
     semesterId?: string;
     subjectIds?: string[];
     academicYear?: string;
+    semesterAssignments?: SemesterAssignmentInput[];
   } = {};
 
   // Validate name
   if ("name" in body) {
-    if (typeof body.name !== "string" || !body.name.trim()) {
+    if (
+      typeof body.name !== "string" ||
+      !body.name.trim()
+    ) {
       return res.status(400).json({
         success: false,
         message: "Name must be a non-empty string",
@@ -288,7 +286,10 @@ export const updateTeacherController = async (
 
   // Validate branch
   if ("branchId" in body) {
-    if (typeof body.branchId !== "string" || !body.branchId.trim()) {
+    if (
+      typeof body.branchId !== "string" ||
+      !body.branchId.trim()
+    ) {
       return res.status(400).json({
         success: false,
         message: "Valid branchId is required",
@@ -300,7 +301,10 @@ export const updateTeacherController = async (
 
   // Validate status
   if ("status" in body) {
-    if (!["ACTIVE", "INACTIVE"].includes(body.status)) {
+    if (
+      body.status !== "ACTIVE" &&
+      body.status !== "INACTIVE"
+    ) {
       return res.status(400).json({
         success: false,
         message: "Status must be ACTIVE or INACTIVE",
@@ -319,30 +323,116 @@ export const updateTeacherController = async (
     ) {
       return res.status(400).json({
         success: false,
-        message: "Password must be between 10 and 72 characters",
+        message:
+          "Password must be between 10 and 72 characters",
       });
     }
   }
 
-  // Validate subject assignment fields
   const assignmentFields = [
     "semesterId",
     "subjectIds",
-    "academicYear",
   ];
 
-  const hasAssignmentFields = assignmentFields.some(
-    (field) => field in body
-  );
+  const hasLegacyAssignmentFields =
+    assignmentFields.some((field) => field in body);
 
-  if (hasAssignmentFields) {
+  const hasMultipleSemesterAssignments =
+    "semesterAssignments" in body;
+
+  // Prevent mixing old and new assignment payload formats.
+  if (
+    hasLegacyAssignmentFields &&
+    hasMultipleSemesterAssignments
+  ) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "Use either semesterAssignments or the legacy assignment fields, not both",
+    });
+  }
+
+  // New format: multiple semesters
+  if (hasMultipleSemesterAssignments) {
+    if (
+      !Array.isArray(body.semesterAssignments) ||
+      typeof body.academicYear !== "string" ||
+      !body.academicYear.trim()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "semesterAssignments must be an array and academicYear is required",
+      });
+    }
+
+    const seenSemesterIds = new Set<string>();
+
+    const semesterAssignments: SemesterAssignmentInput[] = [];
+
+    for (const assignment of body.semesterAssignments) {
+      if (
+        !assignment ||
+        typeof assignment.semesterId !== "string" ||
+        !assignment.semesterId.trim() ||
+        !Array.isArray(assignment.subjectIds) ||
+        !assignment.subjectIds.every(
+          (id: unknown) =>
+            typeof id === "string" &&
+            id.trim().length > 0
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Each semester assignment must contain a valid semesterId and subjectIds array",
+        });
+      }
+
+      const semesterId = assignment.semesterId.trim();
+
+      if (seenSemesterIds.has(semesterId)) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Each semester can appear only once in semesterAssignments",
+        });
+      }
+
+      seenSemesterIds.add(semesterId);
+
+      const subjectIds = assignment.subjectIds.map(
+        (id: string) => id.trim()
+      );
+
+      if (new Set(subjectIds).size !== subjectIds.length) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Duplicate subject IDs are not allowed within a semester",
+        });
+      }
+
+      semesterAssignments.push({
+        semesterId,
+        subjectIds,
+      });
+    }
+
+    data.semesterAssignments = semesterAssignments;
+    data.academicYear = body.academicYear.trim();
+  }
+
+  // Legacy format: one semester
+  else if (hasLegacyAssignmentFields) {
     if (
       typeof body.semesterId !== "string" ||
       !body.semesterId.trim() ||
       !Array.isArray(body.subjectIds) ||
       !body.subjectIds.every(
         (id: unknown) =>
-          typeof id === "string" && id.trim().length > 0
+          typeof id === "string" &&
+          id.trim().length > 0
       ) ||
       typeof body.academicYear !== "string" ||
       !body.academicYear.trim()
@@ -354,15 +444,29 @@ export const updateTeacherController = async (
       });
     }
 
+    const subjectIds = body.subjectIds.map(
+      (id: string) => id.trim()
+    );
+
+    if (new Set(subjectIds).size !== subjectIds.length) {
+      return res.status(400).json({
+        success: false,
+        message: "Duplicate subject IDs are not allowed",
+      });
+    }
+
     data.semesterId = body.semesterId.trim();
-    data.subjectIds = body.subjectIds;
+    data.subjectIds = subjectIds;
     data.academicYear = body.academicYear.trim();
   }
 
   try {
-    // Hash the password exactly once.
+    // Hash password once, only if supplied.
     if ("password" in body) {
-      data.passwordHash = await bcrypt.hash(body.password, 12);
+      data.passwordHash = await bcrypt.hash(
+        body.password,
+        12
+      );
     }
 
     console.log("UPDATE TEACHER DATA:", {
@@ -373,10 +477,12 @@ export const updateTeacherController = async (
       semesterId: data.semesterId,
       academicYear: data.academicYear,
       subjectIds: data.subjectIds,
-      assignmentUpdateRequested: hasAssignmentFields,
+      semesterAssignments: data.semesterAssignments,
+      assignmentUpdateRequested:
+        hasLegacyAssignmentFields ||
+        hasMultipleSemesterAssignments,
     });
 
-    // Assignment fields are now passed to the service too.
     const teacher = await updateTeacher(userId, data);
 
     return res.status(200).json({
@@ -386,31 +492,34 @@ export const updateTeacherController = async (
     });
   } catch (error: unknown) {
     if (error instanceof Error) {
-      if (error.message === "TEACHER_NOT_FOUND") {
-        return res.status(404).json({
-          success: false,
+      const knownErrors: Record<
+        string,
+        { status: number; message: string }
+      > = {
+        TEACHER_NOT_FOUND: {
+          status: 404,
           message: "Teacher not found",
-        });
-      }
-
-      if (error.message === "BRANCH_NOT_FOUND") {
-        return res.status(404).json({
-          success: false,
+        },
+        BRANCH_NOT_FOUND: {
+          status: 404,
           message: "Branch not found",
-        });
-      }
-
-      if (error.message === "SEMESTER_NOT_FOUND") {
-        return res.status(404).json({
-          success: false,
+        },
+        SEMESTER_NOT_FOUND: {
+          status: 404,
           message: "Semester not found",
-        });
-      }
-
-      if (error.message === "SUBJECTS_INVALID") {
-        return res.status(400).json({
-          success: false,
+        },
+        SUBJECTS_INVALID: {
+          status: 400,
           message: "Selected subjects are invalid",
+        },
+      };
+
+      const knownError = knownErrors[error.message];
+
+      if (knownError) {
+        return res.status(knownError.status).json({
+          success: false,
+          message: knownError.message,
         });
       }
     }
@@ -424,15 +533,14 @@ export const updateTeacherController = async (
   }
 };
 
-
-
+// GET teacher by ID
 export const getTeacherByIdController = async (
   req: Request,
   res: Response
 ) => {
   const userId = getRouteParam(req, "userId");
 
-  if (typeof userId !== "string" || !userId.trim()) {
+  if (!userId) {
     return res.status(400).json({
       success: false,
       message: "Valid teacher user ID is required",
@@ -466,5 +574,3 @@ export const getTeacherByIdController = async (
     });
   }
 };
-
-

@@ -1,6 +1,17 @@
 import { Save, X } from "lucide-react";
 import type { Subject } from "../../../../api/subjectApi";
 
+interface Semester {
+  id: string;
+  number: number;
+}
+
+interface SemesterSubjectsState {
+  subjects: Subject[];
+  isLoading: boolean;
+  isError: boolean;
+}
+
 interface EditTeacherModalProps {
   teacherName: string;
   name: string;
@@ -24,26 +35,19 @@ interface EditTeacherModalProps {
   branchesLoading: boolean;
   branchesError: boolean;
 
-  semesters: {
-    id: string;
-    number: number;
-  }[];
-
+  semesters: Semester[];
   semestersLoading: boolean;
   semestersError: boolean;
 
-  semesterId: string;
-  setSemesterId: (value: string) => void;
+  selectedSemesterIds: string[];
+  onToggleSemester: (semesterId: string) => void;
 
   academicYear: string;
   setAcademicYear: (value: string) => void;
 
-  subjects: Subject[];
-  subjectsLoading: boolean;
-  subjectsError: boolean;
-
-  selectedSubjectIds: string[];
-  onToggleSubject: (subjectId: string) => void;
+  subjectsBySemester: Record<string, SemesterSubjectsState>;
+  selectedSubjectsBySemester: Record<string, string[]>;
+  onToggleSubject: (semesterId: string, subjectId: string) => void;
 
   isPending: boolean;
   error: string;
@@ -68,20 +72,45 @@ export default function EditTeacherModal({
   semesters,
   semestersLoading,
   semestersError,
-  semesterId,
-  setSemesterId,
+  selectedSemesterIds,
+  onToggleSemester,
   academicYear,
   setAcademicYear,
-  subjects,
-  subjectsLoading,
-  subjectsError,
-  selectedSubjectIds,
+  subjectsBySemester,
+  selectedSubjectsBySemester,
   onToggleSubject,
   isPending,
   error,
   onClose,
   onSubmit,
 }: EditTeacherModalProps) {
+  const sortedSemesters = [...semesters].sort(
+    (a, b) => a.number - b.number,
+  );
+
+  const invalidAcademicYear = !/^\d{4}-\d{4}$/.test(
+    academicYear.trim(),
+  );
+
+  const selectedSubjectsCount = selectedSemesterIds.reduce(
+    (total, semesterId) =>
+      total +
+      (selectedSubjectsBySemester[semesterId]?.length ?? 0),
+    0,
+  );
+
+  const selectedSemesterData = sortedSemesters.filter((semester) =>
+    selectedSemesterIds.includes(semester.id),
+  );
+
+  const subjectsAreLoading = selectedSemesterIds.some(
+    (semesterId) => subjectsBySemester[semesterId]?.isLoading,
+  );
+
+  const subjectsHaveError = selectedSemesterIds.some(
+    (semesterId) => subjectsBySemester[semesterId]?.isError,
+  );
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
@@ -95,7 +124,7 @@ export default function EditTeacherModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="edit-teacher-title"
-        className="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:max-w-2xl sm:rounded-2xl sm:p-6"
+        className="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:max-w-3xl sm:rounded-2xl sm:p-6"
       >
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -105,6 +134,7 @@ export default function EditTeacherModal({
             >
               Edit Teacher
             </h2>
+
             <p className="mt-1 text-sm text-gray-500">
               Update teacher information for {teacherName}.
             </p>
@@ -130,6 +160,7 @@ export default function EditTeacherModal({
             >
               Teacher Name
             </label>
+
             <input
               id="edit-teacher-name"
               type="text"
@@ -148,6 +179,7 @@ export default function EditTeacherModal({
             >
               Branch
             </label>
+
             <select
               id="edit-teacher-branch"
               value={branchId}
@@ -156,8 +188,11 @@ export default function EditTeacherModal({
               className="min-h-12 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#921B25] focus:ring-2 focus:ring-red-100 disabled:bg-gray-100"
             >
               <option value="">
-                {branchesLoading ? "Loading branches..." : "Select a branch"}
+                {branchesLoading
+                  ? "Loading branches..."
+                  : "Select a branch"}
               </option>
+
               {branches.map((branch) => (
                 <option key={branch.id} value={branch.id}>
                   {branch.name} ({branch.codePrefix})
@@ -180,6 +215,7 @@ export default function EditTeacherModal({
             >
               New Password
             </label>
+
             <input
               id="edit-teacher-password"
               type="password"
@@ -191,6 +227,7 @@ export default function EditTeacherModal({
               autoComplete="new-password"
               className="min-h-12 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-[#921B25] focus:ring-2 focus:ring-red-100"
             />
+
             <p className="mt-1 text-xs text-gray-500">
               Optional. Enter 10–72 characters to change the password.
             </p>
@@ -204,6 +241,7 @@ export default function EditTeacherModal({
             >
               Status
             </label>
+
             <select
               id="edit-teacher-status"
               value={status}
@@ -218,50 +256,16 @@ export default function EditTeacherModal({
           </div>
 
           {/* Subject assignments */}
-          <div className="rounded-xl border border-[#921B25]/20 bg-[#FFF9F7] p-4">
+          <section className="rounded-xl border border-[#921B25]/20 bg-[#FFF9F7] p-4">
             <div>
               <h3 className="text-base font-bold text-gray-800">
                 Subject Assignments
               </h3>
+
               <p className="mt-1 text-sm text-gray-600">
-                Select a semester and academic year, then choose the subjects
-                assigned to this teacher.
+                Select multiple semesters and assign subjects separately
+                for each semester.
               </p>
-            </div>
-
-            {/* Semester */}
-            <div className="mt-4">
-              <label
-                htmlFor="edit-teacher-semester"
-                className="mb-2 block text-sm font-semibold text-gray-700"
-              >
-                Semester
-              </label>
-              <select
-                id="edit-teacher-semester"
-                value={semesterId}
-                onChange={(event) => setSemesterId(event.target.value)}
-                disabled={semestersLoading || semestersError}
-                className="min-h-12 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#921B25] focus:ring-2 focus:ring-red-100 disabled:bg-gray-100"
-              >
-                <option value="">
-                  {semestersLoading ? "Loading semesters..." : "Select semester"}
-                </option>
-                {semesters
-                  .slice()
-                  .sort((a, b) => a.number - b.number)
-                  .map((semester) => (
-                    <option key={semester.id} value={semester.id}>
-                      Semester {semester.number}
-                    </option>
-                  ))}
-              </select>
-
-              {semestersError && (
-                <p className="mt-2 text-sm text-red-600">
-                  Unable to load semesters.
-                </p>
-              )}
             </div>
 
             {/* Academic year */}
@@ -272,6 +276,7 @@ export default function EditTeacherModal({
               >
                 Academic Year
               </label>
+
               <input
                 id="edit-teacher-academic-year"
                 type="text"
@@ -282,68 +287,173 @@ export default function EditTeacherModal({
                 maxLength={9}
                 className="min-h-12 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#921B25] focus:ring-2 focus:ring-red-100"
               />
+
+              {academicYear.trim() && invalidAcademicYear && (
+                <p className="mt-1 text-xs text-red-600">
+                  Enter the academic year in YYYY-YYYY format.
+                </p>
+              )}
             </div>
 
-            {/* Subject list */}
-            <div className="mt-4">
+            {/* Semester selection */}
+            <div className="mt-5">
               <div className="mb-2 flex items-center justify-between gap-2">
-                <label className="block text-sm font-semibold text-gray-700">
-                  Assigned Subjects
+                <label className="text-sm font-semibold text-gray-700">
+                  Select Semesters
                 </label>
+
                 <span className="text-xs text-gray-500">
-                  {selectedSubjectIds.length} selected
+                  {selectedSemesterIds.length} selected
                 </span>
               </div>
 
-              {!branchId || !semesterId ? (
-                <p className="rounded-lg border border-dashed border-gray-300 bg-white p-4 text-sm text-gray-500">
-                  Select a branch and semester to view subjects.
-                </p>
-              ) : subjectsLoading ? (
+              {semestersLoading ? (
                 <p className="rounded-lg bg-white p-4 text-sm text-gray-500">
-                  Loading subjects...
+                  Loading semesters...
                 </p>
-              ) : subjectsError ? (
+              ) : semestersError ? (
                 <p className="rounded-lg bg-red-50 p-4 text-sm text-red-700">
-                  Unable to load subjects. Please try again.
+                  Unable to load semesters.
                 </p>
-              ) : subjects.length === 0 ? (
-                <p className="rounded-lg border border-dashed border-gray-300 bg-white p-4 text-sm text-gray-500">
-                  No subjects found for this branch and semester.
+              ) : sortedSemesters.length === 0 ? (
+                <p className="rounded-lg bg-white p-4 text-sm text-gray-500">
+                  No semesters found.
                 </p>
               ) : (
-                <div className="max-h-64 space-y-2 overflow-y-auto rounded-lg border border-gray-200 bg-white p-3">
-                  {subjects.map((subject) => (
-                    <label
-                      key={subject.id}
-                      className="flex min-h-12 cursor-pointer items-start gap-3 rounded-lg p-3 hover:bg-red-50"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedSubjectIds.includes(subject.id)}
-                        onChange={() => onToggleSubject(subject.id)}
-                        className="mt-1 h-4 w-4 accent-[#921B25]"
-                      />
-                      <span className="min-w-0">
-                        <span className="block text-sm font-semibold text-gray-800">
-                          {subject.name}
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+                  {sortedSemesters.map((semester) => {
+                    const checked = selectedSemesterIds.includes(
+                      semester.id,
+                    );
+
+                    return (
+                      <label
+                        key={semester.id}
+                        className={`flex min-h-12 cursor-pointer items-center gap-2 rounded-lg border p-3 text-sm transition ${
+                          checked
+                            ? "border-[#921B25] bg-[#921B25]/5 text-[#921B25]"
+                            : "border-gray-200 bg-white text-gray-700 hover:border-[#921B25]/40"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => onToggleSemester(semester.id)}
+                          className="h-4 w-4 accent-[#921B25]"
+                        />
+
+                        <span className="font-semibold">
+                          Semester {semester.number}
                         </span>
-                        <span className="mt-1 block text-xs text-gray-500">
-                          Code: {subject.code}
-                        </span>
-                      </span>
-                    </label>
-                  ))}
+                      </label>
+                    );
+                  })}
                 </div>
               )}
+            </div>
 
-              <p className="mt-2 text-xs text-gray-500">
-                Saving updates the assignments for the selected semester and
-                academic year. Assignments for other semesters are not included
-                in this update.
+            {/* Subject cards */}
+            <div className="mt-5 space-y-4">
+              {selectedSemesterData.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-gray-300 bg-white p-4 text-sm text-gray-500">
+                  Select one or more semesters to view and assign their
+                  subjects.
+                </p>
+              ) : (
+                selectedSemesterData.map((semester) => {
+                  const semesterSubjects =
+                    subjectsBySemester[semester.id];
+
+                  const selectedIds =
+                    selectedSubjectsBySemester[semester.id] ?? [];
+
+                  return (
+                    <section
+                      key={semester.id}
+                      className="rounded-xl border border-gray-200 bg-white p-3 sm:p-4"
+                    >
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <h4 className="font-bold text-gray-800">
+                          Semester {semester.number}
+                        </h4>
+
+                        <span className="rounded-full bg-[#921B25]/10 px-3 py-1 text-xs font-semibold text-[#921B25]">
+                          {selectedIds.length} selected
+                        </span>
+                      </div>
+
+                      {!branchId ? (
+                        <p className="rounded-lg bg-gray-50 p-3 text-sm text-gray-500">
+                          Select a branch to load subjects.
+                        </p>
+                      ) : !semesterSubjects ||
+                        semesterSubjects.isLoading ? (
+                        <p className="rounded-lg bg-gray-50 p-3 text-sm text-gray-500">
+                          Loading subjects...
+                        </p>
+                      ) : semesterSubjects.isError ? (
+                        <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                          Unable to load subjects for this semester.
+                        </p>
+                      ) : semesterSubjects.subjects.length === 0 ? (
+                        <p className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-3 text-sm text-gray-500">
+                          No subjects found for this branch and semester.
+                        </p>
+                      ) : (
+                        <div className="max-h-60 space-y-1 overflow-y-auto">
+                          {semesterSubjects.subjects.map((subject) => (
+                            <label
+                              key={subject.id}
+                              className="flex min-h-12 cursor-pointer items-start gap-3 rounded-lg p-3 hover:bg-red-50"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedIds.includes(subject.id)}
+                                onChange={() =>
+                                  onToggleSubject(semester.id, subject.id)
+                                }
+                                className="mt-1 h-4 w-4 accent-[#921B25]"
+                              />
+
+                              <span className="min-w-0">
+                                <span className="block text-sm font-semibold text-gray-800">
+                                  {subject.name}
+                                </span>
+
+                                <span className="mt-1 block text-xs text-gray-500">
+                                  Code: {subject.code}
+                                </span>
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </section>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="mt-4 rounded-lg bg-white p-3 text-sm text-gray-600 ring-1 ring-gray-200">
+              <p className="font-semibold text-gray-800">
+                {selectedSemesterIds.length} semesters · {selectedSubjectsCount} subjects
+              </p>
+
+              <p className="mt-1 text-xs leading-5 text-gray-500">
+                Only the semesters selected above will be synchronized for
+                this academic year. Assignments in other semesters and
+                academic years will remain unchanged.
               </p>
             </div>
-          </div>
+
+            {(subjectsAreLoading || subjectsHaveError) && (
+              <p className="mt-2 text-xs text-gray-500">
+                {subjectsAreLoading
+                  ? "Wait for the selected semesters' subjects to load before saving."
+                  : "A subject list failed to load. Resolve the loading error before saving assignments."}
+              </p>
+            )}
+          </section>
 
           {/* Error */}
           {error && (
@@ -374,12 +484,13 @@ export default function EditTeacherModal({
                 branchesLoading ||
                 branchesError ||
                 branches.length === 0 ||
-                (Boolean(semesterId) &&
-                  (semestersLoading ||
-                    semestersError ||
-                    subjectsLoading ||
-                    subjectsError ||
-                    !/^\d{4}-\d{4}$/.test(academicYear)))
+                semestersLoading ||
+                semestersError ||
+                (selectedSemesterIds.length > 0 &&
+                  (!branchId ||
+                    invalidAcademicYear ||
+                    subjectsAreLoading ||
+                    subjectsHaveError))
               }
               className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#921B25] px-4 py-2 text-sm font-semibold text-white hover:bg-[#75151D] disabled:cursor-not-allowed disabled:opacity-60"
             >

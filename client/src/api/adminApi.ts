@@ -145,15 +145,29 @@ export async function approveTeacher(
 
 }
 
- export interface UpdateTeacherPayload {
+export interface SemesterAssignmentPayload {
+  semesterId: string;
+  subjectIds: string[];
+}
+
+export interface SemesterAssignmentPayload {
+  semesterId: string;
+  subjectIds: string[];
+}
+
+export interface UpdateTeacherPayload {
   name?: string;
   branchId?: string;
   status?: "ACTIVE" | "INACTIVE";
   password?: string;
 
+  // Existing single-semester support
   semesterId?: string;
   subjectIds?: string[];
   academicYear?: string;
+
+  // New: multiple semesters in one request
+  semesterAssignments?: SemesterAssignmentPayload[];
 }
 
   export interface UpdateTeacherResponse {

@@ -12,6 +12,23 @@ type MarkInput = {
   obtainedMarks: number | null;
 };
 
+function normalizeAcademicYear(year: string): string {
+  const match = year.trim().match(/^(\d{4})[-/](\d{2}|\d{4})$/);
+
+  if (!match) {
+    return year.trim();
+  }
+
+  const startYear = match[1];
+
+  const endYear =
+    match[2].length === 2
+      ? `${startYear.slice(0, 2)}${match[2]}`
+      : match[2];
+
+  return `${startYear}-${endYear}`;
+}
+
 async function getAuthorizedTeacher(
   req: AuthenticatedRequest,
   testId: string
@@ -80,17 +97,43 @@ async function getAuthorizedTeacher(
   }
 
   // Verify active teacher assignment for the subject and academic year.
-  const assignment = await prisma.teacherSubjectAssignment.findFirst({
+  // Verify active teacher assignment for the subject and academic year.
+  // Normalize academic years because "2026-27" and "2026-2027"
+  // represent the same academic year.
+  const assignments = await prisma.teacherSubjectAssignment.findMany({
     where: {
       teacherId: teacher.id,
       subjectId: test.subjectId,
-      academicYear: test.cycle.academicYear,
       active: true,
     },
     select: {
       id: true,
+      academicYear: true,
     },
   });
+
+  const testAcademicYear = normalizeAcademicYear(
+    test.cycle.academicYear
+  );
+
+  const assignment = assignments.find(
+    (item) =>
+      normalizeAcademicYear(item.academicYear) === testAcademicYear
+  );
+
+  if (!assignment) {
+    console.log("SUBJECT ASSIGNMENT MISMATCH:", {
+      teacherId: teacher.id,
+      subjectId: test.subjectId,
+      assignmentAcademicYears: assignments.map(
+        (item) => item.academicYear
+      ),
+      testAcademicYear: test.cycle.academicYear,
+      normalizedTestAcademicYear: testAcademicYear,
+    });
+
+    return { error: "SUBJECT_NOT_ASSIGNED" as const };
+  }
 
   if (!assignment) {
     return { error: "SUBJECT_NOT_ASSIGNED" as const };
@@ -123,6 +166,10 @@ function sendAuthorizationError(res: Response, error: string) {
     BRANCH_MISMATCH: {
       status: 403,
       message: "You cannot access a subject outside your branch.",
+    },
+    SEMESTER_MISMATCH: {
+      status: 403,
+      message: "The subject and unit test cycle belong to different semesters.",
     },
   };
 
@@ -190,13 +237,17 @@ export const getTeacherUnitTestMarks = async (
         branchId: true,
         semesterId: true,
       },
-      orderBy: { rollNo: "asc" },
+      orderBy: {
+        rollNo: "asc",
+      },
     });
 
     const marks = await prisma.unitTestMark.findMany({
       where: {
         unitTestId: test.id,
-        studentId: { in: students.map((student) => student.id) },
+        studentId: {
+          in: students.map((student) => student.id),
+        },
       },
       select: {
         id: true,
@@ -337,14 +388,18 @@ export const saveTeacherUnitTestMarks = async (
 
     const eligibleStudents = await prisma.student.findMany({
       where: {
-        id: { in: marks.map((mark) => mark.studentId) },
+        id: {
+          in: marks.map((mark) => mark.studentId),
+        },
         semesterId: test.cycle.semesterId,
         isActive: true,
         ...(semesterNumber >= 3
           ? { branchId: test.subject.branchId ?? "__NO_MATCH__" }
           : {}),
       },
-      select: { id: true },
+      select: {
+        id: true,
+      },
     });
 
     if (eligibleStudents.length !== seen.size) {
@@ -411,12 +466,12 @@ export const saveTeacherUnitTestMarks = async (
 };
 
 // GET /api/teacher/unit-tests
-// GET /api/teacher/unit-tests
 export const getMyUnitTests = async (
   req: AuthenticatedRequest,
   res: Response
 ) => {
   try {
+    // Verify teacher authentication.
     if (req.user?.role !== "TEACHER" || !req.user.userId) {
       return res.status(403).json({
         success: false,
@@ -424,6 +479,7 @@ export const getMyUnitTests = async (
       });
     }
 
+    // Fetch teacher profile.
     const teacher = await prisma.teacherProfile.findUnique({
       where: {
         userId: req.user.userId,
@@ -453,29 +509,61 @@ export const getMyUnitTests = async (
       },
     });
 
-    // No active assignments means no tests are available.
+    // Return empty data if no active assignments exist.
     if (assignments.length === 0) {
-      return res.json({
+      return res.status(200).json({
         success: true,
         data: [],
       });
     }
 
-    // Fetch only tests belonging to assigned subjects and academic years.
+    // DEBUG: Verify the actual assigned subjects.
+    console.log(
+      "ASSIGNED SUBJECT DETAILS:",
+      await prisma.subject.findMany({
+        where: {
+          id: {
+            in: assignments.map((assignment) => assignment.subjectId),
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+          semesterId: true,
+          branchId: true,
+        },
+      })
+    );
+
+    // Collect assigned subject IDs.
+    const assignedSubjectIds = [
+      ...new Set(assignments.map((assignment) => assignment.subjectId)),
+    ];
+
+    // Map each assigned subject to its normalized academic years.
+    const assignedYearsBySubject = new Map<string, Set<string>>();
+
+    for (const assignment of assignments) {
+      const normalizedYear = normalizeAcademicYear(
+        assignment.academicYear
+      );
+
+      const years =
+        assignedYearsBySubject.get(assignment.subjectId) ??
+        new Set<string>();
+
+      years.add(normalizedYear);
+
+      assignedYearsBySubject.set(assignment.subjectId, years);
+    }
+
+    // Fetch unit tests for assigned subjects.
+    // Academic year is normalized and checked below.
     const tests = await prisma.unitTest.findMany({
       where: {
-        OR: assignments.map((assignment) => ({
-          subjectId: assignment.subjectId,
-
-          cycle: {
-            academicYear: assignment.academicYear,
-
-            // Subject and test cycle must belong to the same semester.
-            semesterId: {
-              equals: undefined,
-            },
-          },
-        })),
+        subjectId: {
+          in: assignedSubjectIds,
+        },
       },
       include: {
         subject: true,
@@ -495,11 +583,52 @@ export const getMyUnitTests = async (
       ],
     });
 
-    // Validate branch and semester relationships before returning tests.
-    const filteredTests = tests.filter((test) => {
+    // Filter tests by assigned subject and academic year.
+    const assignedTests = tests.filter((test) => {
+      const assignedYears = assignedYearsBySubject.get(test.subjectId);
+
+      if (!assignedYears) {
+        return false;
+      }
+
+      const testAcademicYear = normalizeAcademicYear(
+        test.cycle.academicYear
+      );
+
+      return assignedYears.has(testAcademicYear);
+    });
+
+    // DEBUG: Check all tests for assigned subjects.
+    console.log(
+      "ALL TESTS FOR ASSIGNED SUBJECTS:",
+      await prisma.unitTest.findMany({
+        where: {
+          subjectId: {
+            in: assignedSubjectIds,
+          },
+        },
+        select: {
+          id: true,
+          title: true,
+          testNumber: true,
+          subjectId: true,
+          cycle: {
+            select: {
+              name: true,
+              academicYear: true,
+              semesterId: true,
+              branchId: true,
+            },
+          },
+        },
+      })
+    );
+
+    // Validate semester and branch relationships.
+    const filteredTests = assignedTests.filter((test) => {
       const semesterNumber = test.cycle.semester.number;
 
-      // The subject and cycle must always belong to the same semester.
+      // Subject and test cycle must belong to the same semester.
       if (test.subject.semesterId !== test.cycle.semesterId) {
         return false;
       }
@@ -514,13 +643,61 @@ export const getMyUnitTests = async (
 
       // Semester 3 onwards requires a matching branch.
       return (
-        test.subject.branchId !== null &&
         test.subject.branchId === teacher.branchId &&
         test.cycle.branchId === teacher.branchId
       );
     });
 
-    return res.json({
+    // DEBUG: Show assignments and filtering results.
+    console.log("========== TEACHER UNIT TEST DEBUG ==========");
+
+    console.log("TEACHER BRANCH:", teacher.branchId);
+
+    console.log("ACTIVE ASSIGNMENTS:", assignments);
+
+    console.log(
+      "FETCHED TESTS:",
+      tests.map((test) => ({
+        subject: test.subject.name,
+        subjectId: test.subjectId,
+        subjectSemester: test.subject.semesterId,
+        subjectBranch: test.subject.branchId,
+        assignmentAcademicYears: [
+          ...(assignedYearsBySubject.get(test.subjectId) ?? []),
+        ],
+        testAcademicYear: test.cycle.academicYear,
+        normalizedTestAcademicYear: normalizeAcademicYear(
+          test.cycle.academicYear
+        ),
+        cycleSemester: test.cycle.semesterId,
+        cycleBranch: test.cycle.branchId,
+        semesterNumber: test.cycle.semester.number,
+      }))
+    );
+
+    console.log(
+      "ACADEMIC YEAR MATCHED TESTS:",
+      assignedTests.map((test) => ({
+        subject: test.subject.name,
+        testNumber: test.testNumber,
+        academicYear: test.cycle.academicYear,
+      }))
+    );
+
+    console.log(
+      "FILTERED TESTS:",
+      filteredTests.map((test) => ({
+        subject: test.subject.name,
+        testNumber: test.testNumber,
+      }))
+    );
+
+    console.log("TOTAL MATCHED TESTS:", filteredTests.length);
+
+    console.log("=============================================");
+
+    // Return filtered unit tests.
+    return res.status(200).json({
       success: true,
       data: filteredTests,
     });
