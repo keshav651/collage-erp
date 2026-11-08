@@ -104,15 +104,15 @@ export async function exportUnitTestMarks(
 
           ? {
 
-              OR: [
+            OR: [
 
-                { branchId },
+              { branchId },
 
-                { branchId: null },
+              { branchId: null },
 
-              ],
+            ],
 
-            }
+          }
 
           : {}),
 
@@ -258,8 +258,7 @@ export async function exportUnitTestMarks(
 
         { branch: { name: "asc" } },
 
-        { rollNo: "asc" },
-
+        { fatherName: "asc" },
       ],
 
     });
@@ -276,7 +275,7 @@ export async function exportUnitTestMarks(
 
       id: string;
 
-      rollNo: string;
+      fatherName: string | null;
 
       name: string;
 
@@ -378,7 +377,7 @@ export async function exportUnitTestMarks(
 
         id: student.id,
 
-        rollNo: student.rollNo,
+        fatherName: student.fatherName,
 
         name: student.name,
 
@@ -565,17 +564,14 @@ export async function exportUnitTestMarks(
 
 
       const studentList = [...group.students.values()].sort(
-
         (a, b) =>
-
-          a.rollNo.localeCompare(b.rollNo, undefined, {
-
-            numeric: true,
-
-            sensitivity: "base",
-
-          }),
-
+          (a.fatherName ?? "").localeCompare(
+            b.fatherName ?? "",
+            undefined,
+            {
+              sensitivity: "base",
+            },
+          ),
       );
 
 
@@ -604,7 +600,7 @@ export async function exportUnitTestMarks(
       // Row 3: Unit-test column headings.
       const header = [
         "S.No.",
-        "Roll No.",
+        "Father's Name",
         "Student Name",
         ...tests.map(
           (test) =>
@@ -652,7 +648,7 @@ export async function exportUnitTestMarks(
 
           index + 1,
 
-          student.rollNo,
+          student.fatherName,
 
           student.name,
 

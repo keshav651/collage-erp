@@ -11,7 +11,7 @@ export default function useUpdateStudent() {
     }: {
       id: string;
       payload: {
-        rollNo?: string;
+        fatherName?: string;
         name?: string;
         branchId?: string;
         semesterId?: string;
