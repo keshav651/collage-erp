@@ -31,7 +31,7 @@ export default function StudentCard({
           </h4>
 
           <p className="mt-1 break-all text-sm text-gray-500">
-            Roll No: {student.rollNo}
+            Father's Name: {student.fatherName}
           </p>
 
           <p className="mt-1 text-sm text-gray-500">

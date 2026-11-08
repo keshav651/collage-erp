@@ -232,13 +232,13 @@ export const getTeacherUnitTestMarks = async (
       },
       select: {
         id: true,
-        rollNo: true,
+        fatherName: true,
         name: true,
         branchId: true,
         semesterId: true,
       },
       orderBy: {
-        rollNo: "asc",
+        fatherName: "asc",
       },
     });
 

@@ -78,23 +78,23 @@ export default function StudentFormModal({
             />
           </div>
 
-          {/* Roll Number */}
+          {/* Father's Name */}
           <div>
             <label
-              htmlFor="student-roll-no"
+              htmlFor="student-father-name"
               className="mb-1.5 block text-sm font-medium text-gray-700"
             >
-              Roll Number
+              Father's Name
             </label>
 
             <input
-              id="student-roll-no"
-              name="rollNo"
+              id="student-father-name"
+              name="fatherName"
               type="text"
               required
-              value={formData.rollNo}
+              value={formData.fatherName}
               onChange={onInputChange}
-              placeholder="Enter roll number"
+              placeholder="Enter father's name"
               className="min-h-11 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-[#921B25] focus:ring-2 focus:ring-red-100"
             />
           </div>

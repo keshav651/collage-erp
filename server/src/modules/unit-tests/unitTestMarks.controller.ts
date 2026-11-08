@@ -55,7 +55,7 @@ export const initializeUnitTestMarks = async (
       select: {
         id: true,
         name: true,
-        rollNo: true,
+        fatherName: true,
       },
     });
 

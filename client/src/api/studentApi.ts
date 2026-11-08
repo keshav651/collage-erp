@@ -16,7 +16,7 @@ export interface StudentSemester {
 
 export interface Student {
   id: string;
-  rollNo: string;
+  fatherName: string;
   name: string;
   branchId: string;
   semesterId: string;
@@ -28,14 +28,14 @@ export interface Student {
 }
 
 export interface StudentPayload {
-  rollNo: string;
+  fatherName: string;
   name: string;
   branchId: string;
   semesterId: string;
 }
 
 export interface UpdateStudentPayload {
-  rollNo?: string;
+  fatherName?: string;
   name?: string;
   branchId?: string;
   semesterId?: string;
@@ -127,7 +127,7 @@ export const deleteStudent = async (id: string) => {
 
 export interface StudentImportError {
   row: number;
-  rollNo?: string;
+  fatherName?: string;
   reason: string;
 }
 

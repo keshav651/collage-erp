@@ -90,7 +90,7 @@ export const creatingStudent = async (
             });
         }
 
-        const { branchId, semesterId, rollNo, name } = result.data;
+        const { branchId, semesterId, fatherName, name } = result.data;
 
         const [branch, semester] = await Promise.all([
             prisma.branch.findUnique({
@@ -109,7 +109,7 @@ export const creatingStudent = async (
         }
 
         const student = await createStudent({
-            rollNo,
+            fatherName,
             name,
             branchId,
             semesterId,
@@ -127,7 +127,7 @@ export const creatingStudent = async (
         ) {
             return res.status(409).json({
                 success: false,
-                message: "Roll number already exists",
+                message: "A student with these details already exists",
             });
         }
 
@@ -205,7 +205,7 @@ export const updatingStudent = async (
         ) {
             return res.status(409).json({
                 success: false,
-                message: "Roll number already exists",
+                message: "A student with these details already exists",
             });
         }
 

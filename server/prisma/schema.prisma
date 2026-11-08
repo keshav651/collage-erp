@@ -150,9 +150,9 @@ model Subject {
 // ============================================================
 
 model Student {
-  id     String @id @default(uuid())
-  rollNo String @unique
-  name   String
+  id         String @id @default(uuid())
+  fatherName String?
+  name       String
 
   branchId String
   branch   Branch @relation(fields: [branchId], references: [id])

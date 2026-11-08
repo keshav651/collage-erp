@@ -12,21 +12,21 @@ export const downloadStudentTemplate = async (
     const worksheet = workbook.addWorksheet("Students");
 
     worksheet.columns = [
-      { header: "rollNo", key: "rollNo", width: 20 },
+      { header: "fatherName", key: "fatherName", width: 25 },
       { header: "name", key: "name", width: 30 },
       { header: "branchId", key: "branchId", width: 40 },
       { header: "semesterId", key: "semesterId", width: 40 },
     ];
 
     worksheet.addRow({
-      rollNo: "CSE001",
+      fatherName: "Ram Kumar",
       name: "Example Student",
       branchId: "PASTE_VALID_BRANCH_ID",
       semesterId: "PASTE_VALID_SEMESTER_ID",
     });
 
     worksheet.getRow(1).font = { bold: true };
-    worksheet.getRow(2).getCell("rollNo").note =
+    worksheet.getRow(2).getCell("fatherName").note =
       "Example row: replace this data with real student details.";
 
     const buffer = await workbook.xlsx.writeBuffer();
@@ -98,7 +98,7 @@ export const importStudents = async (
     });
 
     const requiredHeaders = [
-      "rollno",
+      "fathername",
       "name",
       "branchid",
       "semesterid",
@@ -148,7 +148,7 @@ export const importStudents = async (
 
     const dataRows: Array<{
       rowNumber: number;
-      rollNo: string;
+      fatherName: string;
       name: string;
       branchId: string;
       semesterId: string;
@@ -156,7 +156,7 @@ export const importStudents = async (
 
     const errors: Array<{
       row: number;
-      rollNo?: string;
+      fatherName?: string;
       reason: string;
     }> = [];
 
@@ -170,27 +170,27 @@ export const importStudents = async (
     for (let rowNumber = 2; rowNumber <= worksheet.rowCount; rowNumber++) {
       const row = worksheet.getRow(rowNumber);
 
-      const rollNo = getCellValue(row, "rollno");
+      const fatherName = getCellValue(row, "fathername");
       const name = getCellValue(row, "name");
       const branchId = getCellValue(row, "branchid");
       const semesterId = getCellValue(row, "semesterid");
 
-      if (!rollNo && !name && !branchId && !semesterId) {
+      if (!fatherName && !name && !branchId && !semesterId) {
         continue;
       }
 
-      if (!rollNo || !name || !branchId || !semesterId) {
+      if (!fatherName || !name || !branchId || !semesterId) {
         errors.push({
           row: rowNumber,
-          rollNo: rollNo || undefined,
-          reason: "rollNo, name, branchId and semesterId are required.",
+          fatherName: fatherName || undefined,
+          reason: "fatherName, name, branchId and semesterId are required.",
         });
         continue;
       }
 
       dataRows.push({
         rowNumber,
-        rollNo,
+        fatherName,
         name,
         branchId,
         semesterId,
@@ -205,21 +205,22 @@ export const importStudents = async (
       });
     }
 
-    const duplicateRollNos = new Set<string>();
-    const seenRollNos = new Set<string>();
+    const duplicateKeys = new Set<string>();
+    const seenKeys = new Set<string>();
 
     for (const student of dataRows) {
-      const normalizedRollNo = student.rollNo.toLowerCase();
+      // Duplicate key = name + branchId + semesterId (case-insensitive name)
+      const key = `${student.name.toLowerCase()}__${student.branchId}__${student.semesterId}`;
 
-      if (seenRollNos.has(normalizedRollNo)) {
-        duplicateRollNos.add(normalizedRollNo);
+      if (seenKeys.has(key)) {
+        duplicateKeys.add(key);
         errors.push({
           row: student.rowNumber,
-          rollNo: student.rollNo,
-          reason: "Duplicate roll number inside the Excel file.",
+          fatherName: student.fatherName,
+          reason: "Duplicate student (same name, branch and semester) inside the Excel file.",
         });
       } else {
-        seenRollNos.add(normalizedRollNo);
+        seenKeys.add(key);
       }
     }
 
@@ -242,20 +243,24 @@ export const importStudents = async (
       }),
       prisma.student.findMany({
         where: {
-          rollNo: { in: dataRows.map((student) => student.rollNo) },
+          name: { in: dataRows.map((student) => student.name) },
         },
-        select: { rollNo: true },
+        select: { name: true, branchId: true, semesterId: true },
       }),
     ]);
 
     const validBranchIds = new Set(branches.map((branch) => branch.id));
     const validSemesterIds = new Set(semesters.map((semester) => semester.id));
-    const existingRollNos = new Set(
-      existingStudents.map((student) => student.rollNo.toLowerCase())
+    // Build a set of existing student keys: name__branchId__semesterId
+    const existingStudentKeys = new Set(
+      existingStudents.map(
+        (student) =>
+          `${student.name.toLowerCase()}__${student.branchId}__${student.semesterId}`
+      )
     );
 
     const validStudents: Array<{
-      rollNo: string;
+      fatherName: string;
       name: string;
       branchId: string;
       semesterId: string;
@@ -263,15 +268,15 @@ export const importStudents = async (
     }> = [];
 
     for (const student of dataRows) {
-      const normalizedRollNo = student.rollNo.toLowerCase();
+      const key = `${student.name.toLowerCase()}__${student.branchId}__${student.semesterId}`;
 
-      if (duplicateRollNos.has(normalizedRollNo)) continue;
+      if (duplicateKeys.has(key)) continue;
 
-      if (existingRollNos.has(normalizedRollNo)) {
+      if (existingStudentKeys.has(key)) {
         errors.push({
           row: student.rowNumber,
-          rollNo: student.rollNo,
-          reason: "Roll number already exists in the database.",
+          fatherName: student.fatherName,
+          reason: "Student with same name, branch and semester already exists in the database.",
         });
         continue;
       }
@@ -279,7 +284,7 @@ export const importStudents = async (
       if (!validBranchIds.has(student.branchId)) {
         errors.push({
           row: student.rowNumber,
-          rollNo: student.rollNo,
+          fatherName: student.fatherName,
           reason: "Invalid branchId.",
         });
         continue;
@@ -288,14 +293,14 @@ export const importStudents = async (
       if (!validSemesterIds.has(student.semesterId)) {
         errors.push({
           row: student.rowNumber,
-          rollNo: student.rollNo,
+          fatherName: student.fatherName,
           reason: "Invalid semesterId.",
         });
         continue;
       }
 
       validStudents.push({
-        rollNo: student.rollNo,
+        fatherName: student.fatherName,
         name: student.name,
         branchId: student.branchId,
         semesterId: student.semesterId,
@@ -306,7 +311,7 @@ export const importStudents = async (
     const batch = await prisma.studentImportBatch.create({
       data: {
         fileName: req.file.originalname,
-        totalRecords: dataRows.length + errors.filter((e) => !e.rollNo).length,
+        totalRecords: dataRows.length + errors.filter((e) => !e.fatherName).length,
         successfulRecords: 0,
         failedRecords: errors.length,
         status: "PROCESSING",
@@ -404,14 +409,14 @@ export const exportStudents = async (
         branch: { select: { name: true, codePrefix: true } },
         semester: { select: { number: true } },
       },
-      orderBy: [{ rollNo: "asc" }],
+      orderBy: [{ fatherName: "asc" }],
     });
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Students");
 
     worksheet.columns = [
-      { header: "rollNo", key: "rollNo", width: 20 },
+      { header: "fatherName", key: "fatherName", width: 25 },
       { header: "name", key: "name", width: 30 },
       { header: "branch", key: "branch", width: 25 },
       { header: "branchId", key: "branchId", width: 40 },
@@ -423,7 +428,7 @@ export const exportStudents = async (
 
     for (const student of students) {
       worksheet.addRow({
-        rollNo: student.rollNo,
+        fatherName: student.fatherName,
         name: student.name,
         branch: student.branch.name,
         branchId: student.branchId,

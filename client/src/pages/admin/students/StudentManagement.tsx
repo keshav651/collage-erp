@@ -38,7 +38,7 @@ export default function StudentManagement() {
 
     const [formData, setFormData] = useState<StudentPayload>({
         name: "",
-        rollNo: "",
+        fatherName: "",
         branchId: "",
         semesterId: "",
     });
@@ -71,7 +71,7 @@ export default function StudentManagement() {
     const branches = branchesData?.data ?? [];
     const semesters = semestersData?.data ?? [];
 
-    // Search students by name or roll number
+    // Search students by name or father's name
     const filteredStudents = useMemo(() => {
         const search = studentSearch.trim().toLowerCase();
 
@@ -80,7 +80,7 @@ export default function StudentManagement() {
         return students.filter(
             (student) =>
                 student.name.toLowerCase().includes(search) ||
-                student.rollNo.toLowerCase().includes(search),
+                student.fatherName.toLowerCase().includes(search),
         );
     }, [students, studentSearch]);
 
@@ -89,7 +89,7 @@ export default function StudentManagement() {
         setSelectedStudent(null);
         setFormData({
             name: "",
-            rollNo: "",
+            fatherName: "",
             branchId: "",
             semesterId: "",
         });
@@ -101,7 +101,7 @@ export default function StudentManagement() {
         setSelectedStudent(student);
         setFormData({
             name: student.name,
-            rollNo: student.rollNo,
+            fatherName: student.fatherName,
             branchId: student.branchId,
             semesterId: student.semesterId,
         });
@@ -134,14 +134,14 @@ export default function StudentManagement() {
 
         const payload: StudentPayload = {
             name: formData.name.trim(),
-            rollNo: formData.rollNo.trim(),
+            fatherName: formData.fatherName.trim(),
             branchId: formData.branchId,
             semesterId: formData.semesterId,
         };
 
         if (
             !payload.name ||
-            !payload.rollNo ||
+            !payload.fatherName ||
             !payload.branchId ||
             !payload.semesterId
         ) {
@@ -187,7 +187,7 @@ export default function StudentManagement() {
 
     const handleDeleteStudent = async (student: Student) => {
         const confirmed = window.confirm(
-            `Are you sure you want to permanently delete ${student.name} (${student.rollNo})? This action cannot be undone.`
+            `Are you sure you want to permanently delete ${student.name} (Father: ${student.fatherName})? This action cannot be undone.`
         );
 
         if (!confirmed) return;
@@ -354,7 +354,7 @@ export default function StudentManagement() {
                             type="search"
                             value={studentSearch}
                             onChange={(event) => setStudentSearch(event.target.value)}
-                            placeholder="Search by student name or roll number..."
+                            placeholder="Search by student name or father's name..."
                             aria-label="Search students"
                             className="min-h-11 w-full rounded-lg border border-gray-200 py-2 pl-10 pr-3 text-sm outline-none transition focus:border-[#921B25] focus:ring-2 focus:ring-red-100"
                         />

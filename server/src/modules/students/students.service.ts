@@ -22,7 +22,7 @@ export const getStudentById = async (id: string) => {
 };
 
 export const createStudent = async (data: {
-  rollNo: string;
+  fatherName: string;
   name: string;
   branchId: string;
   semesterId: string;
@@ -39,7 +39,7 @@ export const createStudent = async (data: {
 export const updateStudent = async (
   id: string,
   data: {
-    rollNo?: string;
+    fatherName?: string;
     name?: string;
     branchId?: string;
     semesterId?: string;

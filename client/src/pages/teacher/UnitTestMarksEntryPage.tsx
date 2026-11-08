@@ -29,7 +29,7 @@ type UnitTest = {
 
 type Student = {
     id: string;
-    rollNo: string | number;
+    fatherName: string | number;
     name: string;
     mark: {
         status: MarkStatus;
@@ -197,8 +197,8 @@ export default function UnitTestMarksEntryPage() {
         }
 
         return [...byId.values()].sort((a, b) =>
-            String(a.rollNo).localeCompare(String(b.rollNo), undefined, {
-                numeric: true,
+            String(a.fatherName).localeCompare(String(b.fatherName), undefined, {
+                numeric: false,
             })
         );
     }, [marksQueries.data]);
@@ -496,7 +496,7 @@ export default function UnitTestMarksEntryPage() {
                                                 S.No.
                                             </th>
                                             <th className="sticky left-16 z-10 min-w-28 border-b border-r bg-gray-100 px-3 py-3">
-                                                Roll No.
+                                                Father's Name
                                             </th>
                                             <th className="min-w-48 border-b border-r px-3 py-3">
                                                 Student Name
@@ -528,7 +528,7 @@ export default function UnitTestMarksEntryPage() {
                                                     {index + 1}
                                                 </td>
                                                 <td className="sticky left-16 border-b border-r bg-white px-3 py-2.5 font-medium">
-                                                    {student.rollNo}
+                                                    {student.fatherName}
                                                 </td>
                                                 <td className="border-b border-r px-3 py-2.5 font-medium text-gray-800">
                                                     {student.name}
