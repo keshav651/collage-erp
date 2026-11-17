@@ -1,31 +1,28 @@
-
 import { Router } from "express";
+
 import {
   createUnitTestCycle,
   getUnitTestCycles,
   deleteUnitTestCycle,
 } from "./unitTest.controller.js";
+
 import { initializeUnitTestMarks } from "./unitTestMarks.controller.js";
 import { exportUnitTestMarks } from "./unitTestExport.controller.js";
 
-
 const router = Router();
 
-// Create a new Unit Test cycle
+// Unit Test Cycle
 router.post("/cycles", createUnitTestCycle);
-
-// Get all Unit Test cycles
 router.get("/cycles", getUnitTestCycles);
-
-router.post(
-  "/:id/initialize-marks",
-  initializeUnitTestMarks,
-);
-
-// Delete a Unit Test cycle
 router.delete("/cycles/:id", deleteUnitTestCycle);
 
-// Export UT marks to Excel
+// Unit Test Marks
+router.post(
+  "/cycles/:id/initialize-marks",
+  initializeUnitTestMarks
+);
+
+// Excel Export
 router.get("/export", exportUnitTestMarks);
 
 export default router;

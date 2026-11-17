@@ -1,19 +1,25 @@
 
-import { createBrowserRouter } from "react-router-dom";
+import {
+  createBrowserRouter,
+  Navigate,
+} from "react-router-dom";
 
 import LoginPage from "../pages/auth/LoginPage";
 import SignupPage from "../pages/auth/SignUpPage";
 import PendingApprovalPage from "../pages/auth/PendingApprovalPage";
+
 import AdminDashboard from "../pages/admin/AdminDashboard";
-import TeacherDashboard from "../pages/teacher/TeacherDashboard";
-import ProtectedRoute from "../components/auth/ProtectedRoute";
 import StudentManagementPage from "../pages/admin/students/StudentManagementPage";
 import TeacherManagementPage from "../pages/admin/teachers/TeacherManagementPage";
 import BranchManagementPage from "../pages/admin/branches/BranchManagementPage";
-import UnitTestMarksEntryPage from "../pages/teacher/UnitTestMarksEntryPage";
 import UnitTestManagementPage from "../pages/admin/unit-tests/UnitTestManagementPage";
 import SubjectManagementPage from "../pages/admin/subjects/SubjectManagementPage";
 
+import TeacherDashboard from "../pages/teacher/TeacherDashboard";
+import UnitTestMarksEntryPage from "../pages/teacher/UnitTestMarksEntryPage";
+
+import ProtectedRoute from "../components/auth/ProtectedRoute";
+import AdminLayout from "../layouts/AdminLayout";
 
 export const router = createBrowserRouter([
   // Public routes
@@ -35,29 +41,39 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute allowedRoles={["ADMIN"]} />,
     children: [
       {
-        path: "/admin/dashboard",
-        element: <AdminDashboard />,
+        path: "/admin",
+        element: <AdminLayout />,
+        children: [
+          {
+            index: true,
+            element: <Navigate to="dashboard" replace />,
+          },
+          {
+            path: "dashboard",
+            element: <AdminDashboard />,
+          },
+          {
+            path: "students",
+            element: <StudentManagementPage />,
+          },
+          {
+            path: "teachers",
+            element: <TeacherManagementPage />,
+          },
+          {
+            path: "branches",
+            element: <BranchManagementPage />,
+          },
+          {
+            path: "unit-tests",
+            element: <UnitTestManagementPage />,
+          },
+          {
+            path: "subjects",
+            element: <SubjectManagementPage />,
+          },
+        ],
       },
-      {
-        path: "/admin/students",
-        element: <StudentManagementPage />,
-      },
-      {
-        path: "/admin/teachers",
-        element: <TeacherManagementPage />
-      },
-      {
-        path: "/admin/branches",
-        element: <BranchManagementPage />
-      },
-      {
-        path: "/admin/unit-tests",
-        element: <UnitTestManagementPage />,
-      },
-      {
-        path: "/admin/subjects",
-        element : <SubjectManagementPage />
-      }
     ],
   },
 
@@ -72,7 +88,7 @@ export const router = createBrowserRouter([
       {
         path: "/teacher/unit-tests",
         element: <UnitTestMarksEntryPage />,
-      }
+      },
     ],
   },
 ]);
