@@ -14,7 +14,7 @@ export default function AppProviders({ children }: AppProvidersProps) {
           queries: {
             retry: 1,
             refetchOnWindowFocus: false,
-            staleTime: 30_000,
+            staleTime: 10 * 60 * 1000,
           },
           mutations: {
             retry: 0,
