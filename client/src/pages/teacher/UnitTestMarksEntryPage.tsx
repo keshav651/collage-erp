@@ -1,12 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, ArrowLeft, RefreshCw, Save } from "lucide-react";
-import { Link } from "react-router-dom";
+import { RefreshCw } from "lucide-react";
 import {
     getTeacherUnitTests,
     getUnitTestMarks,
     saveUnitTestMarks,
 } from "../../api/teacherUnitTestsApi";
+import MarksEntryHeader from "../../components/teacher/unit-tests/MarksEntryHeader";
+import SubjectSelector from "../../components/teacher/unit-tests/SubjectSelector";
+import MarksEntryAlerts from "../../components/teacher/unit-tests/MarksEntryAlerts";
+import MarksEntryRules from "../../components/teacher/unit-tests/MarksEntryRules";
+import MarksEntryTable from "../../components/teacher/unit-tests/MarksEntryTable";
 
 type MarkStatus = "PRESENT" | "ABSENT" | "PENDING";
 
@@ -85,9 +89,8 @@ export default function UnitTestMarksEntryPage() {
             if (!test.cycle || !test.subject) continue;
 
             const key = `${test.subjectId}|${test.cycle.id}`;
-            const label = `${test.subject.name} — Semester ${
-                test.cycle.semester?.number ?? "?"
-            } — ${test.cycle.academicYear}`;
+            const label = `${test.subject.name} — Semester ${test.cycle.semester?.number ?? "?"
+                } — ${test.cycle.academicYear}`;
 
             if (!map.has(key)) {
                 map.set(key, {
@@ -197,8 +200,9 @@ export default function UnitTestMarksEntryPage() {
         }
 
         return [...byId.values()].sort((a, b) =>
-            String(a.fatherName).localeCompare(String(b.fatherName), undefined, {
+            String(a.name).localeCompare(String(b.name), undefined, {
                 numeric: false,
+                sensitivity: "base",
             })
         );
     }, [marksQueries.data]);
@@ -322,111 +326,40 @@ export default function UnitTestMarksEntryPage() {
 
     return (
         <div className="min-h-screen bg-gray-50">
-            <header className="border-b border-gray-200 bg-white">
-                <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-3 px-4 py-4 sm:px-6">
-                    <div>
-                        <h1 className="text-xl font-bold text-red-900">
-                            Unit Test Marks Entry
-                        </h1>
-                        <p className="mt-1 text-sm text-gray-500">
-                            Excel-style subject-wise marks sheet
-                        </p>
-                    </div>
-
-                    <Link
-                        to="/teacher/dashboard"
-                        className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium hover:bg-gray-50"
-                    >
-                        <ArrowLeft size={16} />
-                        Dashboard
-                    </Link>
-                </div>
-            </header>
+            <MarksEntryHeader />
 
             <main className="mx-auto max-w-[1600px] space-y-5 px-4 py-6 sm:px-6">
-                <section className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
-                    <label className="block text-sm font-semibold text-gray-700">
-                        Subject / Semester / Academic Year
-                    </label>
 
-                    <select
-                        value={`${selectedSubject}|${selectedCycle}`}
-                        onChange={(event) => {
-                            const [subjectId, cycleId] =
-                                event.target.value.split("|");
-                            setSelectedSubject(subjectId);
-                            setSelectedCycle(cycleId);
-                            setSheet({});
-                            setMessage("");
-                            setError("");
-                        }}
-                        disabled={!groups.length}
-                        className="mt-2 w-full max-w-2xl rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-red-700"
-                    >
-                        {groups.map((group) => (
-                            <option key={group.key} value={group.key}>
-                                {group.label}
-                            </option>
-                        ))}
-                    </select>
+                <SubjectSelector
+                    selectedSubject={selectedSubject}
+                    selectedCycle={selectedCycle}
+                    groups={groups}
+                    studentsCount={students.length}
+                    testsCount={sortedTests.length}
+                    onSelectionChange={(subjectId, cycleId) => {
+                        setSelectedSubject(subjectId);
+                        setSelectedCycle(cycleId);
+                        setSheet({});
+                        setMessage("");
+                        setError("");
+                    }}
+                />
 
-                    {selectedGroup && (
-                        <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-600">
-                            <span className="rounded-full bg-gray-100 px-3 py-1">
-                                {students.length} students
-                            </span>
-                            <span className="rounded-full bg-gray-100 px-3 py-1">
-                                {sortedTests.length} Unit Tests available
-                            </span>
-                        </div>
-                    )}
-                </section>
 
-                {message && (
-                    <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">
-                        {message}
-                    </div>
-                )}
 
-                {error && (
-                    <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-                        <AlertCircle size={18} className="mt-0.5 shrink-0" />
-                        <p>{error}</p>
-                    </div>
-                )}
+                <MarksEntryAlerts
+                    message={message}
+                    error={error}
+                    testsLoading={testsLoading}
+                    testsError={testsError}
+                    testsCount={tests.length}
+                    groupsCount={groups.length}
+                    marksLoading={marksQueries.isLoading}
+                    marksError={marksQueries.isError}
+                    hasSelectedTests={sortedTests.length > 0}
+                    onRetryTests={() => void refetchTests()}
+                />
 
-                {testsLoading && (
-                    <div className="rounded-xl border bg-white p-8 text-center text-gray-600">
-                        <RefreshCw className="mx-auto mb-2 animate-spin" />
-                        Loading unit tests...
-                    </div>
-                )}
-
-                {!testsLoading && testsError && (
-                    <div className="rounded-xl border border-red-200 bg-white p-6">
-                        <p className="text-sm text-red-800">
-                            Unit Tests load nahi ho sake.
-                        </p>
-                        <button
-                            type="button"
-                            onClick={() => void refetchTests()}
-                            className="mt-3 rounded-lg bg-red-900 px-4 py-2 text-sm font-semibold text-white"
-                        >
-                            Try Again
-                        </button>
-                    </div>
-                )}
-
-                {!testsLoading && !testsError && tests.length === 0 && (
-                    <div className="rounded-xl border border-gray-200 bg-white p-8 text-center">
-                        <h2 className="font-semibold text-gray-800">
-                            No Unit Tests found
-                        </h2>
-                        <p className="mt-2 text-sm text-gray-500">
-                            Tests appear here when they are assigned to your subjects.
-                        </p>
-                    </div>
-                )}
 
                 {!testsLoading &&
                     !testsError &&
@@ -454,195 +387,18 @@ export default function UnitTestMarksEntryPage() {
 
                 {!loading && !loadError && sortedTests.length > 0 && (
                     <>
-                        <div className="rounded-xl border border-gray-200 bg-white p-4">
-                            <h2 className="font-semibold text-gray-900">
-                                Marks Entry Rules
-                            </h2>
-                            <p className="mt-1 text-sm text-gray-600">
-                                Present students ke marks 0 se us test ke maximum
-                                marks tak hone chahiye. Absent aur Pending ke marks
-                                blank rahenge.
-                            </p>
-                        </div>
+                        <MarksEntryRules />
 
-                        <section className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-                            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 p-4">
-                                <div>
-                                    <h2 className="font-semibold text-gray-900">
-                                        {selectedGroup?.label}
-                                    </h2>
-                                    <p className="mt-1 text-xs text-gray-500">
-                                        Cells edit karein, phir Save All Marks par
-                                        click karein.
-                                    </p>
-                                </div>
+                        <MarksEntryTable
+                            selectedGroupLabel={selectedGroup?.label ?? ""}
+                            sortedTests={sortedTests}
+                            students={students}
+                            sheet={sheet}
+                            saving={saving}
+                            onUpdateCell={updateCell}
+                            onSave={() => void handleSave()}
+                        />
 
-                                <button
-                                    type="button"
-                                    onClick={() => void handleSave()}
-                                    disabled={saving || students.length === 0}
-                                    className="inline-flex items-center gap-2 rounded-lg bg-red-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                    <Save size={16} />
-                                    {saving ? "Saving..." : "Save All Marks"}
-                                </button>
-                            </div>
-
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full border-collapse text-left text-sm">
-                                    <thead className="bg-gray-100">
-                                        <tr>
-                                            <th className="sticky left-0 z-10 min-w-16 border-b border-r bg-gray-100 px-3 py-3">
-                                                S.No.
-                                            </th>
-                                            <th className="sticky left-16 z-10 min-w-28 border-b border-r bg-gray-100 px-3 py-3">
-                                                Father's Name
-                                            </th>
-                                            <th className="min-w-48 border-b border-r px-3 py-3">
-                                                Student Name
-                                            </th>
-                                            {sortedTests.map((test) => (
-                                                <th
-                                                    key={test.id}
-                                                    className="min-w-40 border-b border-r px-3 py-3 text-center"
-                                                >
-                                                    <div>
-                                                        {test.title ||
-                                                            `UT-${test.testNumber}`}
-                                                    </div>
-                                                    <div className="mt-1 text-xs font-normal text-gray-500">
-                                                        Max: {test.maxMarks}
-                                                    </div>
-                                                </th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-
-                                    <tbody>
-                                        {students.map((student, index) => (
-                                            <tr
-                                                key={student.id}
-                                                className="hover:bg-red-50/30"
-                                            >
-                                                <td className="sticky left-0 border-b border-r bg-white px-3 py-2.5 text-gray-500">
-                                                    {index + 1}
-                                                </td>
-                                                <td className="sticky left-16 border-b border-r bg-white px-3 py-2.5 font-medium">
-                                                    {student.fatherName}
-                                                </td>
-                                                <td className="border-b border-r px-3 py-2.5 font-medium text-gray-800">
-                                                    {student.name}
-                                                </td>
-
-                                                {sortedTests.map((test) => {
-                                                    const cell = sheet[student.id]?.[
-                                                        test.id
-                                                    ] ?? {
-                                                        status: "PENDING" as MarkStatus,
-                                                        obtainedMarks: "",
-                                                    };
-
-                                                    const invalid =
-                                                        cell.status === "PRESENT" &&
-                                                        cell.obtainedMarks.trim() !== "" &&
-                                                        (!Number.isFinite(
-                                                            Number(cell.obtainedMarks)
-                                                        ) ||
-                                                            Number(cell.obtainedMarks) <
-                                                                0 ||
-                                                            Number(cell.obtainedMarks) >
-                                                                test.maxMarks);
-
-                                                    return (
-                                                        <td
-                                                            key={test.id}
-                                                            className="border-b border-r px-2 py-2"
-                                                        >
-                                                            <div className="flex min-w-36 flex-col gap-1.5">
-                                                                <select
-                                                                    value={cell.status}
-                                                                    onChange={(event) =>
-                                                                        updateCell(
-                                                                            student.id,
-                                                                            test.id,
-                                                                            "status",
-                                                                            event.target.value
-                                                                        )
-                                                                    }
-                                                                    className="w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-xs"
-                                                                    aria-label={`${student.name} ${test.title} status`}
-                                                                >
-                                                                    <option value="PENDING">
-                                                                        Pending
-                                                                    </option>
-                                                                    <option value="PRESENT">
-                                                                        Present
-                                                                    </option>
-                                                                    <option value="ABSENT">
-                                                                        Absent
-                                                                    </option>
-                                                                </select>
-
-                                                                <input
-                                                                    type="number"
-                                                                    min={0}
-                                                                    max={test.maxMarks}
-                                                                    step="any"
-                                                                    value={cell.obtainedMarks}
-                                                                    disabled={
-                                                                        cell.status !==
-                                                                        "PRESENT"
-                                                                    }
-                                                                    onChange={(event) =>
-                                                                        updateCell(
-                                                                            student.id,
-                                                                            test.id,
-                                                                            "obtainedMarks",
-                                                                            event.target.value
-                                                                        )
-                                                                    }
-                                                                    className={`w-full rounded border px-2 py-1.5 text-right outline-none focus:border-red-700 disabled:bg-gray-100 ${
-                                                                        invalid
-                                                                            ? "border-red-500 bg-red-50"
-                                                                            : "border-gray-300"
-                                                                    }`}
-                                                                    placeholder={`0–${test.maxMarks}`}
-                                                                    aria-label={`${student.name} ${test.title} marks`}
-                                                                />
-
-                                                                {invalid && (
-                                                                    <span className="text-xs text-red-700">
-                                                                        Max {test.maxMarks}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                    );
-                                                })}
-                                            </tr>
-                                        ))}
-
-                                        {students.length === 0 && (
-                                            <tr>
-                                                <td
-                                                    colSpan={sortedTests.length + 3}
-                                                    className="px-4 py-10 text-center text-gray-500"
-                                                >
-                                                    Is test group ke liye koi eligible
-                                                    student nahi mila.
-                                                </td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <div className="border-t border-gray-200 p-4 text-xs text-gray-500">
-                                Tip: Horizontal scroll karke sabhi Unit Tests dekhein.
-                                Marks enter karne ke baad Save All Marks zaroor click
-                                karein.
-                            </div>
-                        </section>
                     </>
                 )}
             </main>
