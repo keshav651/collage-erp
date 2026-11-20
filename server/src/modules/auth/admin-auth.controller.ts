@@ -71,7 +71,6 @@ export const adminLogin = async (
       success: true,
       message: "Admin login successful",
       data: {
-        token,
         user: {
           id: admin.id,
           name: admin.name,

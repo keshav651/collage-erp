@@ -10,8 +10,8 @@ async function main() {
     },
   });
 
-  console.log("Semesters in database:");
-  console.log(JSON.stringify(semesters, null, 2));
+  // console.log("Semesters in database:");
+  // console.log(JSON.stringify(semesters, null, 2));
 }
 
 main()

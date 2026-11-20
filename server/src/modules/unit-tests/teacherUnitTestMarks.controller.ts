@@ -122,15 +122,15 @@ async function getAuthorizedTeacher(
   );
 
   if (!assignment) {
-    console.log("SUBJECT ASSIGNMENT MISMATCH:", {
-      teacherId: teacher.id,
-      subjectId: test.subjectId,
-      assignmentAcademicYears: assignments.map(
-        (item) => item.academicYear
-      ),
-      testAcademicYear: test.cycle.academicYear,
-      normalizedTestAcademicYear: testAcademicYear,
-    });
+    // console.log("SUBJECT ASSIGNMENT MISMATCH:", {
+    //   teacherId: teacher.id,
+    //   subjectId: test.subjectId,
+    //   assignmentAcademicYears: assignments.map(
+    //     (item) => item.academicYear
+    //   ),
+    //   testAcademicYear: test.cycle.academicYear,
+    //   normalizedTestAcademicYear: testAcademicYear,
+    // });
 
     return { error: "SUBJECT_NOT_ASSIGNED" as const };
   }
@@ -518,22 +518,22 @@ export const getMyUnitTests = async (
     }
 
     // DEBUG: Verify the actual assigned subjects.
-    console.log(
-      "ASSIGNED SUBJECT DETAILS:",
-      await prisma.subject.findMany({
-        where: {
-          id: {
-            in: assignments.map((assignment) => assignment.subjectId),
-          },
-        },
-        select: {
-          id: true,
-          name: true,
-          semesterId: true,
-          branchId: true,
-        },
-      })
-    );
+    // console.log(
+    //   "ASSIGNED SUBJECT DETAILS:",
+    //   await prisma.subject.findMany({
+    //     where: {
+    //       id: {
+    //         in: assignments.map((assignment) => assignment.subjectId),
+    //       },
+    //     },
+    //     select: {
+    //       id: true,
+    //       name: true,
+    //       semesterId: true,
+    //       branchId: true,
+    //     },
+    //   })
+    // );
 
     // Collect assigned subject IDs.
     const assignedSubjectIds = [
@@ -599,30 +599,30 @@ export const getMyUnitTests = async (
     });
 
     // DEBUG: Check all tests for assigned subjects.
-    console.log(
-      "ALL TESTS FOR ASSIGNED SUBJECTS:",
-      await prisma.unitTest.findMany({
-        where: {
-          subjectId: {
-            in: assignedSubjectIds,
-          },
-        },
-        select: {
-          id: true,
-          title: true,
-          testNumber: true,
-          subjectId: true,
-          cycle: {
-            select: {
-              name: true,
-              academicYear: true,
-              semesterId: true,
-              branchId: true,
-            },
-          },
-        },
-      })
-    );
+    // console.log(
+    //   "ALL TESTS FOR ASSIGNED SUBJECTS:",
+    //   await prisma.unitTest.findMany({
+    //     where: {
+    //       subjectId: {
+    //         in: assignedSubjectIds,
+    //       },
+    //     },
+    //     select: {
+    //       id: true,
+    //       title: true,
+    //       testNumber: true,
+    //       subjectId: true,
+    //       cycle: {
+    //         select: {
+    //           name: true,
+    //           academicYear: true,
+    //           semesterId: true,
+    //           branchId: true,
+    //         },
+    //       },
+    //     },
+    //   })
+    // );
 
     // Validate semester and branch relationships.
     const filteredTests = assignedTests.filter((test) => {
@@ -649,52 +649,52 @@ export const getMyUnitTests = async (
     });
 
     // DEBUG: Show assignments and filtering results.
-    console.log("========== TEACHER UNIT TEST DEBUG ==========");
+    // console.log("========== TEACHER UNIT TEST DEBUG ==========");
 
-    console.log("TEACHER BRANCH:", teacher.branchId);
+    // console.log("TEACHER BRANCH:", teacher.branchId);
 
-    console.log("ACTIVE ASSIGNMENTS:", assignments);
+    // console.log("ACTIVE ASSIGNMENTS:", assignments);
 
-    console.log(
-      "FETCHED TESTS:",
-      tests.map((test) => ({
-        subject: test.subject.name,
-        subjectId: test.subjectId,
-        subjectSemester: test.subject.semesterId,
-        subjectBranch: test.subject.branchId,
-        assignmentAcademicYears: [
-          ...(assignedYearsBySubject.get(test.subjectId) ?? []),
-        ],
-        testAcademicYear: test.cycle.academicYear,
-        normalizedTestAcademicYear: normalizeAcademicYear(
-          test.cycle.academicYear
-        ),
-        cycleSemester: test.cycle.semesterId,
-        cycleBranch: test.cycle.branchId,
-        semesterNumber: test.cycle.semester.number,
-      }))
-    );
+    // console.log(
+    //   "FETCHED TESTS:",
+    //   tests.map((test) => ({
+    //     subject: test.subject.name,
+    //     subjectId: test.subjectId,
+    //     subjectSemester: test.subject.semesterId,
+    //     subjectBranch: test.subject.branchId,
+    //     assignmentAcademicYears: [
+    //       ...(assignedYearsBySubject.get(test.subjectId) ?? []),
+    //     ],
+    //     testAcademicYear: test.cycle.academicYear,
+    //     normalizedTestAcademicYear: normalizeAcademicYear(
+    //       test.cycle.academicYear
+    //     ),
+    //     cycleSemester: test.cycle.semesterId,
+    //     cycleBranch: test.cycle.branchId,
+    //     semesterNumber: test.cycle.semester.number,
+    //   }))
+    // );
 
-    console.log(
-      "ACADEMIC YEAR MATCHED TESTS:",
-      assignedTests.map((test) => ({
-        subject: test.subject.name,
-        testNumber: test.testNumber,
-        academicYear: test.cycle.academicYear,
-      }))
-    );
+    // console.log(
+    //   "ACADEMIC YEAR MATCHED TESTS:",
+    //   assignedTests.map((test) => ({
+    //     subject: test.subject.name,
+    //     testNumber: test.testNumber,
+    //     academicYear: test.cycle.academicYear,
+    //   }))
+    // );
 
-    console.log(
-      "FILTERED TESTS:",
-      filteredTests.map((test) => ({
-        subject: test.subject.name,
-        testNumber: test.testNumber,
-      }))
-    );
+    // console.log(
+    //   "FILTERED TESTS:",
+    //   filteredTests.map((test) => ({
+    //     subject: test.subject.name,
+    //     testNumber: test.testNumber,
+    //   }))
+    // );
 
-    console.log("TOTAL MATCHED TESTS:", filteredTests.length);
+    // console.log("TOTAL MATCHED TESTS:", filteredTests.length);
 
-    console.log("=============================================");
+    // console.log("=============================================");
 
     // Return filtered unit tests.
     return res.status(200).json({
