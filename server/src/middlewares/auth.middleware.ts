@@ -17,11 +17,11 @@ export const authenticateToken = (
   const authReq = req as AuthenticatedRequest;
 
   // Diagnostic logs: never log the actual JWT.
-  console.log("[AUTH] Request origin:", req.headers.origin);
-  console.log(
-    "[AUTH] Cookie names:",
-    Object.keys(req.cookies ?? {})
-  );
+  // console.log("[AUTH] Request origin:", req.headers.origin);
+  // console.log(
+  //   "[AUTH] Cookie names:",
+  //   Object.keys(req.cookies ?? {})
+  // );
 
   const token = req.cookies?.erp_access_token;
 

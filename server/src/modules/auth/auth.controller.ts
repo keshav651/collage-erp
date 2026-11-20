@@ -76,7 +76,6 @@ export const login = async (
       success: true,
       message: "Login successful",
       data: {
-        token,
         user: {
           id: user.id,
           name: user.name,
@@ -127,13 +126,13 @@ export const changePassword = async (
     }
 
     if (
-      newPassword.length < 10 ||
+      newPassword.length < 8 ||
       newPassword.length > 72
     ) {
       return res.status(400).json({
         success: false,
         message:
-          "New password must be between 10 and 72 characters",
+          "New password must be between 8 and 72 characters",
       });
     }
 

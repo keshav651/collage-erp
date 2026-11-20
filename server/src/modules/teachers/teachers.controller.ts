@@ -469,19 +469,19 @@ export const updateTeacherController = async (
       );
     }
 
-    console.log("UPDATE TEACHER DATA:", {
-      userId,
-      name: data.name,
-      branchId: data.branchId,
-      status: data.status,
-      semesterId: data.semesterId,
-      academicYear: data.academicYear,
-      subjectIds: data.subjectIds,
-      semesterAssignments: data.semesterAssignments,
-      assignmentUpdateRequested:
-        hasLegacyAssignmentFields ||
-        hasMultipleSemesterAssignments,
-    });
+    // console.log("UPDATE TEACHER DATA:", {
+    //   userId,
+    //   name: data.name,
+    //   branchId: data.branchId,
+    //   status: data.status,
+    //   semesterId: data.semesterId,
+    //   academicYear: data.academicYear,
+    //   subjectIds: data.subjectIds,
+    //   semesterAssignments: data.semesterAssignments,
+    //   assignmentUpdateRequested:
+    //     hasLegacyAssignmentFields ||
+    //     hasMultipleSemesterAssignments,
+    // });
 
     const teacher = await updateTeacher(userId, data);
 

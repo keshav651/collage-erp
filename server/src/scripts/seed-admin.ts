@@ -38,7 +38,7 @@ async function main() {
       );
     }
 
-    console.log("Admin already exists. No changes made.");
+    // console.log("Admin already exists. No changes made.");
     return;
   }
 
@@ -61,7 +61,7 @@ async function main() {
     },
   });
 
-  console.log("Admin created successfully:", admin);
+  // console.log("Admin created successfully:", admin);
 }
 
 main()
