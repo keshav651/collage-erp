@@ -7,43 +7,7 @@ import QuickActions from "../../components/teacher/dashboard/QuickActions";
 import UnitTestsList from "../../components/teacher/dashboard/UnitTestsList";
 import AccountInformation from "../../components/teacher/dashboard/AccountInformation";
 
-import {
-  BookOpen,
-  ClipboardCheck,
-  FileText,
-  UserRound,
-} from "lucide-react";
 
-const quickActions = [
-  {
-    title: "Unit Tests",
-    description: "View and manage unit test marks.",
-    icon: ClipboardCheck,
-    path: "/teacher/unit-tests",
-    available: true,
-  },
-  {
-    title: "Attendance",
-    description: "Manage classroom attendance.",
-    icon: UserRound,
-    path: "/teacher/attendance",
-    available: false,
-  },
-  {
-    title: "Subjects",
-    description: "View your assigned subjects.",
-    icon: BookOpen,
-    path: "/teacher/subjects",
-    available: false,
-  },
-  {
-    title: "Assignments",
-    description: "Manage classroom assignments.",
-    icon: FileText,
-    path: "/teacher/assignments",
-    available: false,
-  },
-];
 
 export default function TeacherDashboard() {
   const { user } = useAuth();
